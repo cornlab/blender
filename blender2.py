@@ -351,7 +351,7 @@ if __name__ == '__main__':
                     pam_fullseq = 'N'*nuc.pam_loc+pam_plus
                 # s: Cas9 start -17, Cas12 start-19
                 s = start - nuc.cut_sites[0] - nuc._protospacer_len + 1
-                e = start - nuc.cut_sites[0] - 1
+                e = start - nuc.cut_sites[0]
                 #e = s + nuc._protospacer_len - 1
 
                 s1 = s+1 
