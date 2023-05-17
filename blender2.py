@@ -59,16 +59,21 @@ class Nuclease():
                 self._pam_len = 2
                 self.cut_sites = (-3,-3)
             elif "Sa" in self.name:
-                pass
+                self.pam_seqs = ("GGG", "GAG", "GGA", "GAA")
+                self.pam_loc = 2
+                self._pam_len = 3
+                self.cut_sites = (-3,-3)
             else: 
                 TypeError(f"Nuclease {self.name} not recognized!")
         elif "Cas12a" in self.name:
             if "As" in self.name:
-                self.pam_seqs = ("TTT")
-                self.pam_loc = (len(self.pam_seqs) + 1 + len(self.protospacer_seq))*-1
+                self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
+                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq))*-1
                 self.cut_sites = (-5,-1)
             elif "Lb" in self.name:
-                self.pam_loc = (len(self.pam_seqs) + 1 + len(self.protospacer_seq))*-1
+                self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
+                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq))*-1
+                self.cut_sites = (-5,-1)
             else: 
                 TypeError(f"Nuclease {self.name} not recognized!")
         elif "Cas12f" in self.name:
@@ -78,7 +83,7 @@ class Nuclease():
         else:
             TypeError("Nuclease not recognized!")
         self._cut_separation = abs(self.cut_sites[0] - self.cut_sites[1])
-        self._pam_len = len(self.pam_seqs)
+        self._pam_len = max([len(x) for x in self.pam_seqs])
 
 def parse_arguments():
     parser = argparse.ArgumentParser(prog="autoBLENDER", description = "find Cas on- and off-targets using AutoDisco")
