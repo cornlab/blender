@@ -64,7 +64,7 @@ class Nuclease():
                 self._pam_len = 3
                 self.cut_sites = (-3,-3)
             else: 
-                TypeError(f"Nuclease {self.name} not recognized!")
+                raise TypeError(f"Nuclease {self.name} not recognized!")
         elif "Cas12a" in self.name:
             if "As" in self.name:
                 self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
@@ -75,13 +75,13 @@ class Nuclease():
                 self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq))*-1
                 self.cut_sites = (-5,-1)
             else: 
-                TypeError(f"Nuclease {self.name} not recognized!")
+                raise TypeError(f"Nuclease {self.name} not recognized!")
         elif "Cas12f" in self.name:
             pass
         elif "TnpB" in self.name:
             pass
         else:
-            TypeError("Nuclease not recognized!")
+            raise TypeError("Nuclease not recognized!")
         self._cut_separation = abs(self.cut_sites[0] - self.cut_sites[1])
         self._pam_len = max([len(x) for x in self.pam_seqs])
 
