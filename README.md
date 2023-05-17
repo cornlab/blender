@@ -55,9 +55,13 @@ BLENDER can be run with or without being piped through the filtering script. The
 
 `-c` `--control`        Control bamfile. This is a ChIP-Seq for MRE11 pulldown from either unedited cells or cells that have been edited with a non-targeting gRNA. If there are greater than 10 reads in the control sample, the hit in the edited sample is filtered out.
 
-`-g` `--guide`          Guide sequence. Should be provided 5'-> 3' without the PAM sequence. **Required.**
+`-n` `--nuclease`       Nuclease to search for. Current possibilities are: SpyCas9, SaCas9, LbCas12a, AsCas12a. **Required.**
 
-`-p` `--pams`           List of 2 nucleotide PAM sequences with *spaces* between them. The default is `GG AG`.
+`-w` `--window_size`    Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10'
+
+`-g` `--guide`          Guide sequence. Provided 5'-> 3' without the PAM sequence. **Required.**
+
+`-p` `--pams`           Override nuclease-default PAMs with a space-separated list e.g. `-p GG AG`
 
 `-r` `--reference`      Reference genome in FASTA format. Must be pre-indexed with `faidx` so that an accompanying `*.fai` is found in the same directory as the FASTA-formatted genome.  **Required.**
 

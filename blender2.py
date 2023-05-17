@@ -95,7 +95,7 @@ def parse_arguments():
     parser.add_argument('-w', '--window_size', type=int, help='Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10')
     parser.add_argument('-f', '--file', required=True, help='experimental BAM (required)')
     parser.add_argument('-c', '--control', help='control BAM (optional, but highly recommended)')
-    parser.add_argument('-g', '--guide', required=True, help="on-target guide RNA sequence, provided 5'-3' without the PAM sequence")
+    parser.add_argument('-g', '--guide', required=True, help="On-target guide RNA sequence. Required. provided 5'-3' without the PAM sequence")
     parser.add_argument('-t', '--threshold', type=int, default=3, help='Number of reads to consider for threshold (dfault 3)')
     parser.add_argument('-p', '--pams', metavar='PAM', nargs='*', help='Override nuclease-default PAMs with a space-separated list e.g. "-p GG AG"')
     parser.add_argument('-r', '--reference', required=True, help='Indexed (faidx) reference genome (fasta format). Index should be called <reference>.fai')
