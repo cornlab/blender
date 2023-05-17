@@ -145,9 +145,9 @@ def get_pam(nuclease: Nuclease, chromosome: str, location: int, strand: str, fas
     s = None # relative to the cutsite
     e = None # relative to the cutsite
     if strand == "minus": #+23 Cas12, -5 Cas9 CCNxxx   543210
-        s = location + nuclease.cut_sites[1] - nuclease.pam_loc - nuclease._pam_len # +1
+        s = location + nuclease.cut_sites[1] - nuclease.pam_loc - nuclease._pam_len + 1
     elif strand == "plus": #-19 Cas12, +5 Cas9
-        s = location + -1*nuclease.cut_sites[0] + nuclease.pam_loc + nuclease._pam_len - 1 # - 1
+        s = location + -1*nuclease.cut_sites[0] + nuclease.pam_loc + nuclease._pam_len - 1
     e = s+nuclease._pam_len # python closed end notation
     if s < 1:
         return
@@ -211,7 +211,8 @@ if __name__ == '__main__':
     blacklist_fname = args.blacklist
     
     nuc = Nuclease(args.nuclease, args.guide)
-    print(nuc.protospacer_seq, nuc._protospacer_len, nuc.pam_seqs, nuc._pam_len, nuc.pam_loc, nuc.cut_sites, nuc._cut_separation)
+    if verbose:
+        print(nuc.protospacer_seq, nuc._protospacer_len, nuc.pam_seqs, nuc._pam_len, nuc.pam_loc, nuc.cut_sites, nuc._cut_separation)
 
     if (verbose):
         print (args)
@@ -298,9 +299,9 @@ if __name__ == '__main__':
                             "\tFILTERED:fails disco score " + str(score_min))
                 continue
 
-            start1 = start+1 # convert to 1-based indexing (genome reference)
-            pam_plus = get_pam(nuc, chromosome, start1, "plus", reference_fasta)
-            pam_minus = get_pam(nuc, chromosome, start1, "minus", reference_fasta)
+            start1 = start+1 # convert to 1-based indexing (pysam fetch uses genome reference)
+            pam_plus = get_pam(nuc, chromosome, start, "plus", reference_fasta)
+            pam_minus = get_pam(nuc, chromosome, start, "minus", reference_fasta)
             if debug:
                 print(chromosome, start, both_starts[start], pam_minus, pam_plus, nuc.pam_seqs)
 
@@ -313,7 +314,7 @@ if __name__ == '__main__':
 
 
                 #s : Cas9 start-3,   Cas12 start-1
-                s = start + nuc.cut_sites[1]
+                s = start + nuc.cut_sites[1] +1
                 #e =  Cas9 start + 17
                 #e = start + nuc._protospacer_len + nuc.cut_sites[1]
                 e = s + nuc._protospacer_len - 1
@@ -323,7 +324,7 @@ if __name__ == '__main__':
 
                 if e1 < 1 or s1 < 1: # too close to and end to be our sequence
                     continue
-                guide = get_sequence(chromosome, s1, e1, reference_fasta)
+                guide = get_sequence(chromosome, s, e, reference_fasta)
                 guide = revcomp(guide)
                 mm = n_mm(input_guide, guide)
                 if debug:
@@ -349,7 +350,7 @@ if __name__ == '__main__':
                 else:
                     pam_fullseq = 'N'*nuc.pam_loc+pam_plus
                 # s: Cas9 start -17, Cas12 start-19
-                s = start - nuc.cut_sites[0] - nuc._protospacer_len 
+                s = start - nuc.cut_sites[0] - nuc._protospacer_len + 1
                 e = start - nuc.cut_sites[0] - 1
                 #e = s + nuc._protospacer_len - 1
 
@@ -358,7 +359,7 @@ if __name__ == '__main__':
 
                 if e1 < 1 or s1 < 1: # cannot be our sequence
                     continue
-                guide = get_sequence(chromosome, s1, e1, reference_fasta)
+                guide = get_sequence(chromosome, s, e, reference_fasta)
                 mm = n_mm(input_guide, guide)
                 if debug:
                     print(f"PLUS {guide} {pam_plus} {input_guide} {mm} {len(guide)}")
@@ -373,7 +374,7 @@ if __name__ == '__main__':
                         guide + 
                         " FILTERED: " + str(mm) +  " mismatches")
                 else:
-                    outstr = chromosome + ":" + str(s1) + "-" + str(e1) + "\t" + str(start1) + "\t" + str(score) + "\t" + str(both_starts[start]) + "\t" + "sense\t" + pam_fullseq+"\t" + guide + "\t" + str(mm)
+                    outstr = chromosome + ":" + str(s1) + "-" + str(e1+1) + "\t" + str(start1) + "\t" + str(score) + "\t" + str(both_starts[start]) + "\t" + "sense\t" + pam_fullseq+"\t" + guide + "\t" + str(mm)
                     output[chromosome+str(start)+guide] = outstr
         for site in sorted(output.keys()):
             print(output[site])
