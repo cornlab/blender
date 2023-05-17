@@ -39,9 +39,9 @@ pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed v
 
 ## To run the blender script directly:
 
-        python blender.py -f <experimental bamfile> -c <control bamfile> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed > unfiltered_output.txt
+        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed > unfiltered_output.txt
 
-        python blender.py -f <experimental bamfile> -c <control bamfile> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed  | perl filter.pl > output.txt
+        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed  | perl filter.pl > output.txt
 
 BLENDER can be run with or without being piped through the filtering script. There are two filtering scripts provided; the standard filter.pl script that implements the standard scoring scheme, and the filter_pool.pl script that implements the more stringent scoring scheme for pooled samples.
 <CENTER>
@@ -55,7 +55,7 @@ BLENDER can be run with or without being piped through the filtering script. The
 
 `-c` `--control`        Control bamfile. This is a ChIP-Seq for MRE11 pulldown from either unedited cells or cells that have been edited with a non-targeting gRNA. If there are greater than 10 reads in the control sample, the hit in the edited sample is filtered out.
 
-`-n` `--nuclease`       Nuclease to search for. Current possibilities are: SpyCas9, SaCas9, LbCas12a, AsCas12a. **Required.**
+`-n` `--nuclease`       Nuclease to search for. Current possibilities are: `SpyCas9`, `SaCas9`, `LbCas12a`, `AsCas12a`. **Required.**
 
 `-w` `--window_size`    Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10'
 

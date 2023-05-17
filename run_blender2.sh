@@ -2,11 +2,12 @@
 # Stacia Wyman 22 July 2019
 # Bash script to run BLENDER
 
-# sh run_blender2.sh  <path to reference genome> <path to IP bam> <path to control bam> <guide sequence> <output directory>
+# sh run_blender2.sh  <path to reference genome> <path to IP bam> <path to control bam> <nuclease name> <guide sequence> <output directory>
 
 REF=$1; shift
 IP=$1; shift
 CTRL=$1; shift
+NUC=$1; shift
 GUIDE=$1; shift
 OUTDIR=$1; shift
 OPTS="$@"
@@ -26,7 +27,7 @@ if [ ! -d $OUTDIR ]
 then
    mkdir $OUTDIR
 fi
-command="blender2.py -f $IP -c $CTRL -g $GUIDE -r $REF $OPTS"
+command="blender2.py -f $IP -c $CTRL -n $NUC -g $GUIDE -r $REF $OPTS"
 echo "Running $command"
 python $command > $OUTDIR/unfiltered_blender_hits.txt
 
