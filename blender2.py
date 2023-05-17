@@ -17,6 +17,7 @@ import warnings
 
 
 class Nuclease():
+    name: str
     protospacer_seq: str
     _protospacer_len: int
     pam_seqs: tuple # all possible pams (should all be the same length)
@@ -24,6 +25,9 @@ class Nuclease():
     pam_loc: int # relative to the 3' end of the protospacer
     cut_sites: tuple # relative to the 3' end of the protospacer:  (top,bottom)
     _cut_separation: int
+    
+    def __str__(self):
+        return f"name={self.name}, protospacer={self.protospacer_seq}, pams={self.pam_seqs}, pam_location={self.pam_loc}, cut_sites={self.cut_sites}"
     
     def __init__(self, name: str, protospacer_seq: str, pam_seqs: tuple, pam_loc: int, cut_sites: tuple):
         self.name = name
@@ -87,17 +91,17 @@ class Nuclease():
 
 def parse_arguments():
     parser = argparse.ArgumentParser(prog="autoBLENDER", description = "find Cas on- and off-targets using AutoDisco")
+    parser.add_argument('-n', '--nuclease', type=str, default=None, required=True, help='Nuclease to search for. Possibilities are: SpyCas9, SaCas9, LbCas12a, AsCas12a, Cas12f, TnpB')
+    parser.add_argument('-w', '--window_size', type=int, help='Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10')
     parser.add_argument('-f', '--file', required=True, help='experimental BAM (required)')
     parser.add_argument('-c', '--control', help='control BAM (optional, but highly recommended)')
     parser.add_argument('-g', '--guide', required=True, help="on-target guide RNA sequence, provided 5'-3' without the PAM sequence")
     parser.add_argument('-t', '--threshold', type=int, default=3, help='Number of reads to consider for threshold (dfault 3)')
-    parser.add_argument('-p', '--pams', metavar='PAM', default=["GG", "AG"], nargs='+', help='PAMs to look for (default NGG NAG)')
+    parser.add_argument('-p', '--pams', metavar='PAM', nargs='*', help='Override nuclease-default PAMs with a space-separated list e.g. "-p GG AG"')
     parser.add_argument('-r', '--reference', required=True, help='Indexed (faidx) reference genome (fasta format). Index should be called <reference>.fai')
     parser.add_argument('-m', '--max_mismatches', type=int, default=8, help="Maximum number of mismatches to allow to the guide sequence (default 8)")
     parser.add_argument('-s', '--score_min', type=int, default=3, help="Minimum score to consider a hit (default 3)")
     parser.add_argument('-b', '--blacklist', help='Blacklist to use for filtering hits, e.g. from ENCODE (BED3 format)')
-    parser.add_argument('-n', '--nuclease', type=str, default=None, required=True, help='Nuclease to search for. Possibilities are: SpyCas9, SaCas9, LbCas12a, AsCas12a, Cas12f, TnpB')
-    parser.add_argument('-w', '--window_size', type=int, default=5, help='window size for score summing. Default 5 (Cas9). Choose 10 for Cas12')
     parser.add_argument('--verbose', action='store_true', default=False, help="verbose output")
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
     args = parser.parse_args()
@@ -206,7 +210,6 @@ if __name__ == '__main__':
     edited_fname = args.file
     control_fname = args.control
     input_guide = args.guide
-    pams = args.pams
     reference_fname = args.reference
     threshold = args.threshold
     verbose = args.verbose
@@ -216,11 +219,22 @@ if __name__ == '__main__':
     blacklist_fname = args.blacklist
     
     nuc = Nuclease(args.nuclease, args.guide)
+    window_size = 5 # default
+    if args.pams:
+        nuc.pam_seqs = tuple(args.pams)
+    
+    if args.window_size:
+        window_size = args.window_size
+    elif "Cas9" in nuc.name:
+        window_size = 5
+    elif "Cas12a" in nuc.name:
+        window_size = 10
+    print(window_size)
     if verbose:
-        print(nuc.protospacer_seq, nuc._protospacer_len, nuc.pam_seqs, nuc._pam_len, nuc.pam_loc, nuc.cut_sites, nuc._cut_separation)
+        print(f"nuclease parameters: {nuc}")
 
     if (verbose):
-        print (args)
+        print (f"arguments {args}")
     
     blacklist = get_blacklist(blacklist_fname)
 
@@ -294,7 +308,7 @@ if __name__ == '__main__':
                                 "\tFILTERED: deep area")
                     continue
 
-            score = sum_window(for_starts, rev_starts, start, window_size=args.window_size)
+            score = sum_window(for_starts, rev_starts, start, window_size=window_size)
             if score < score_min: # doesn't pass discover-score cutoff
                 if verbose: 
                         print(chromosome + ":" + "x" + "-" + "x" + "\t" +
