@@ -229,7 +229,6 @@ if __name__ == '__main__':
         window_size = 5
     elif "Cas12a" in nuc.name:
         window_size = 10
-    print(window_size)
     if verbose:
         print(f"nuclease parameters: {nuc}")
 
