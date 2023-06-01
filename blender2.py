@@ -392,7 +392,7 @@ if __name__ == '__main__':
                         guide + 
                         " FILTERED: " + str(mm) +  " mismatches")
                 else:
-                    outstr = chromosome + ":" + str(s1) + "-" + str(e1+1) + "\t" + str(start1) + "\t" + str(score) + "\t" + str(both_starts[start]) + "\t" + "sense\t" + pam_fullseq+"\t" + guide + "\t" + str(mm)
+                    outstr = chromosome + ":" + str(s1) + "-" + str(e1) + "\t" + str(start1) + "\t" + str(score) + "\t" + str(both_starts[start]) + "\t" + "sense\t" + pam_fullseq+"\t" + guide + "\t" + str(mm)
                     output[chromosome+str(start)+guide] = outstr
         for site in sorted(output.keys()):
             print(output[site])
