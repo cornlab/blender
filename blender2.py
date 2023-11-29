@@ -143,10 +143,16 @@ def combine_starts(nuclease: Nuclease, for_starts: dict, rev_starts: dict, thres
     for start in sorted(for_starts.keys()):
         if start == 0:
             continue
-        both = for_starts.get(start, 0) + rev_starts.get(start - nuclease._cut_separation-1, 0)
+        both = for_starts.get(start, 0) + rev_starts.get(start - nuclease._cut_separation - 1, 0)
         if both >= threshold:
-            both_starts[start - nuc._cut_separation - 1 ] = both
+            both_starts[start - nuc._cut_separation - 1] = both
             both_starts[start] = both
+    for start in sorted(rev_starts.keys()):
+        if start not in both_starts.keys():
+            both = for_starts.get(start + nuclease._cut_separation + 1, 0) + rev_starts.get(start,0)
+            if both >= threshold:
+                both_starts[start + nuc._cut_separation + 1] = both
+                both_starts[start] = both
     return both_starts
 
 def get_pam(nuclease: Nuclease, chromosome: str, location: int, strand: str, fastaref):
