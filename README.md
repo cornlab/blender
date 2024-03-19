@@ -39,11 +39,11 @@ pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed v
 
 ## To run the blender script directly:
 
-        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed > unfiltered_output.txt
+        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed -o unfiltered_output.txt
 
-        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed  | perl filter.pl > output.txt
+        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed --filter -o output.txt
 
-BLENDER can be run with or without being piped through the filtering script. There are two filtering scripts provided; the standard filter.pl script that implements the standard scoring scheme, and the filter_pool.pl script that implements the more stringent scoring scheme for pooled samples.
+BLENDER can be run with or without filtering based on number of mismatches and number of reads. We have so far never found a false-negative that was inappropriately filtered out. But we provide the option of outputting unfiltered, raw results just in case you're curious about every single possible hit.
 <CENTER>
 
 ![scoring scheme](https://github.com/cornlab/blender/blob/master/scoring_scheme.png?raw=true)
@@ -51,27 +51,33 @@ BLENDER can be run with or without being piped through the filtering script. The
 </CENTER>
 
 ## Input & Options
-`-f` `--file`           Experimental bamfile (required). This is the aligned bamfile for the MRE11 pulldown of ChIP-Seq of a Cas9 edited sample. BLENDER will extract the reference sequence fromthis file for use in the analysis. I typically use BWA for alignment, but bowtie2 can be used as well. BLENDER has not been tested with bamfiles from other aligners.  **Required.**
+`-f` `--file`           Experimental bamfile. This is the aligned bamfile for the MRE11 pulldown of ChIP-Seq of a Cas9 edited sample. BLENDER will extract the reference sequence fromthis file for use in the analysis. I typically use BWA for alignment, but bowtie2 can be used as well. BLENDER has not been tested with bamfiles from other aligners.  **Required.**
 
-`-c` `--control`        Control bamfile. This is a ChIP-Seq for MRE11 pulldown from either unedited cells or cells that have been edited with a non-targeting gRNA. If there are greater than 10 reads in the control sample, the hit in the edited sample is filtered out.
+`-o` `--output`         Output file **Required**
+
+`-c` `--control`        Control bamfile. This is a ChIP-Seq for MRE11 pulldown from either unedited cells or cells that have been edited with a non-targeting gRNA. If there are greater than 10 reads in the control sample, the hit in the edited sample is filtered out. **Recommended**
 
 `-n` `--nuclease`       Nuclease to search for. Current possibilities are: `SpyCas9`, `SaCas9`, `LbCas12a`, `AsCas12a`. **Required.**
 
-`-w` `--window_size`    Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10'
-
 `-g` `--guide`          Guide sequence. Provided 5'-> 3' without the PAM sequence. **Required.**
-
-`-p` `--pams`           Override nuclease-default PAMs with a space-separated list e.g. `-p GG AG`
 
 `-r` `--reference`      Reference genome in FASTA format. Must be pre-indexed with `faidx` so that an accompanying `*.fai` is found in the same directory as the FASTA-formatted genome.  **Required.**
 
-`-t` `--threshold`      Threshold for number of read ends exactly at a putative cut site. Default is 3. For maximum sensitivity, this can be set to 2 and the filtering scheme applied. **Note that this was formerly option `-c` in blender.pl, but is now `-t` to avoid confusion with the control BAM file!**
+`-b` `--blacklist`      Blacklist to use for filtering hits, e.g. from ENCODE (BED format). **Very strongly recommended**
+
+`--filter`              Filter results (previously accomplished by separate `filter.pl` script) **Recommended to clean up noise**
+
+`-w` `--window_size`    Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10'
+
+`-p` `--pams`           Override nuclease (set by `-n`) default PAMs with a space-separated list e.g. `-p GG AG`
+
+`-t` `--threshold`      Threshold for number of read ends exactly at a putative cut site (default 3). For maximum sensitivity, this can be set to 2 and the filtering scheme applied. **Note that this was formerly option `-c` in blender.pl, but is now `-t` to avoid confusion with the control BAM file!**
 
 `-s` `--score_min`      Minimum aggregated score across a 5-base window around the cutsite to consider a hit (default 3)
 
 `-m` `--max_mismatches` Maximum number of mismatches to allow to the guide sequence (default 8)
 
-`-b` `--blacklist`      Blacklist to use for filtering hits, e.g. from ENCODE (BED format)
+`-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 20)
 
 `--verbose`             This flag will turn on output of filtered out candidates while running if filtered out for more than maximum mismatches (8) in the guide sequence, or the hit occurs in a blacklist region or it is in a very deep region and 
 thus likely an artifact.
