@@ -346,9 +346,10 @@ if __name__ == '__main__':
                         log.info(f"CONTROL skipping {chromosome}:\t{start + 1}\t{ctrl_count[start]}")
                     continue                        
             # filter if blunt ends are relatively rare at this site relative to total number of reads
-            if (both_starts[start] / edited_count[start] < 0.25):
+            # don't filter if the nuclease is not blunt-cutting
+            if (both_starts[start] / edited_count[start] < 0.25) and "Cas9" in nuc.name:
                 if args.verbose:
-                    log.info(f"{chromosome}:x-x\t{start + 1}\t{both_starts[start]}\tFILTERED:deep area")
+                    log.info(f"{chromosome}:x-x\t{start + 1}\t{both_starts[start]}\tFILTERED:deep area {both_starts[start] / edited_count[start]}")
                 continue
             bg_discoscore.append(sum_window(for_starts, rev_starts, start, window_size=window_size))
 
