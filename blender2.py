@@ -52,12 +52,12 @@ class Nuclease():
         elif "Cas12a" in self.name:
             if "As" in self.name:
                 self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
-                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq)) * -1
+                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq)+1) * -1 # constant PAM + degen PAM + protospacer + python open end notation
                 self.cut_sites = (-5, -1)
             elif "Lb" in self.name:
                 self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
-                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq)) * -1
-                self.cut_sites = (-5, -1)
+                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq)+1) * -1
+                self.cut_sites = (-6, 2)
             else:
                 raise TypeError(f"Nuclease {self.name} not recognized!")
         elif "Cas12f" in self.name:
@@ -162,7 +162,7 @@ def get_pam(nuclease: Nuclease, chromosome: str, location: int, strand: str, fas
     ref_pam = ""
     s = None  # relative to the cutsite
     e = None  # relative to the cutsite
-    if strand == "minus":  # +23 Cas12, -5 Cas9 CCNxxx   543210
+    if strand == "minus":  # +23 Cas12, -5 Cas9 CCNxxx
         s = location + nuclease.cut_sites[1] - nuclease.pam_loc - nuclease._pam_len + 1
     elif strand == "plus":  # -19 Cas12, +5 Cas9
         s = location + -1 * nuclease.cut_sites[0] + nuclease.pam_loc + nuclease._pam_len - 1
@@ -209,7 +209,7 @@ def get_blacklist(blacklist_fname):
             blacklist[chromosome] = [(int(start), int(end))]
         else:
             blacklist[chromosome].append((int(start), int(end)))
-        log.debug(blacklist)
+    log.debug(f"{blacklist}")
     f.close()
     return blacklist
 
@@ -312,10 +312,10 @@ if __name__ == '__main__':
                 rev_starts[end - 1] = rev_starts.get(end - 1, 0) + 1
         
         both_starts = combine_starts(nuc, for_starts, rev_starts, args.threshold)
-        log.debug(for_starts)
-        log.debug(rev_starts)
-        log.debug(both_starts)
-        log.debug(chromosome + " testing " + str(len(both_starts.keys())) + " starts")
+        log.debug(f"{for_starts}")
+        log.debug(f"{rev_starts}")
+        log.debug(f"{both_starts}")
+        log.debug(f"{chromosome} testing {len(both_starts.keys())} starts")
 
         edited_count = {}
         ctrl_count = {}
@@ -339,6 +339,7 @@ if __name__ == '__main__':
                         log.info(f"{chromosome}:{start}-{start}\tFILTERED:blacklisted")
                     continue
             
+            bg_discoscore.append(sum_window(for_starts, rev_starts, start, window_size=window_size))
             # filter if the control bam has many reads at this site
             if args.control_bam:
                 if ctrl_count[start] > 10:
@@ -351,7 +352,6 @@ if __name__ == '__main__':
                 if args.verbose:
                     log.info(f"{chromosome}:x-x\t{start + 1}\t{both_starts[start]}\tFILTERED:deep area {both_starts[start] / edited_count[start]}")
                 continue
-            bg_discoscore.append(sum_window(for_starts, rev_starts, start, window_size=window_size))
 
             # CALCULATE DISCO SCORE
             score = 0
@@ -365,7 +365,7 @@ if __name__ == '__main__':
             # START TESTS AGAINST REFERENCE SEQUENCE
             pam_plus = get_pam(nuc, chromosome, start, "plus", reference_fasta)
             pam_minus = get_pam(nuc, chromosome, start, "minus", reference_fasta)
-            log.debug(chromosome, start, both_starts[start], pam_minus, pam_plus, nuc.pam_seqs)
+            log.debug(f"{chromosome}, {start}, {both_starts[start]}, {pam_minus}, {pam_plus}, {nuc.pam_seqs}")
 
             # MINUS STRAND SITES
             strand = "" # should always get set. leave empty for debugging
