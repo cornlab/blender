@@ -43,7 +43,7 @@ pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed v
 
         python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed --filter -o output.txt
 
-BLENDER can be run with or without filtering based on number of mismatches and number of reads. We have so far never found a false-negative that was inappropriately filtered out. But we provide the option of outputting unfiltered, raw results just in case you're curious about every single possible hit.
+BLENDER can be run with or without filtering based on number of mismatches and score. We have so far never found a false-negative that was inappropriately filtered out. But we provide the option of outputting unfiltered, raw results just in case you're curious about every single possible hit.
 <CENTER>
 
 ![scoring scheme](https://github.com/cornlab/blender/blob/master/scoring_scheme.png?raw=true)
