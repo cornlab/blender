@@ -27,13 +27,9 @@ if [ ! -d $OUTDIR ]
 then
    mkdir $OUTDIR
 fi
-command="blender2.py -f $IP -c $CTRL -n $NUC -g $GUIDE -r $REF $OPTS"
+command="blender2.py -f $IP -c $CTRL -n $NUC -g $GUIDE -r $REF $OPTS --filter -o $OUTDIR/filtered_blender_hits.txt"
 echo "Running $command"
-python $command > $OUTDIR/unfiltered_blender_hits.txt
-
-# For pooled samples, comment out the next line and uncomment the filter_pool.pl line
-perl filter.pl $OUTDIR/unfiltered_blender_hits.txt > $OUTDIR/filtered_blender_hits.txt
-#perl filter_pool.pl $OUTDIR/unfiltered_blender_hits.txt > $OUTDIR/filtered_pooled_blender_hits.txt
+python $command
 
 # Add PAM to guide for visualization
 GUIDE+="NRG"
