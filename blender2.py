@@ -138,37 +138,33 @@ def location_in_blacklist(chromosome: str, start: int, blacklist: dict):  # back
                 return True
         return False
 
-def combine_starts(nuclease: Nuclease, for_starts: dict, rev_starts: dict, threshold: int):
+def combine_starts(nuclease: Nuclease, for_starts: dict, rev_starts: dict):
     both_starts = {}
-    for start in sorted(for_starts.keys()):
+    for start in for_starts.keys():
         if start - nuclease._cut_separation - 1 < 0:
             continue
         both = for_starts.get(start, 0) + rev_starts.get(start - nuclease._cut_separation - 1, 0)
-        if both >= threshold:
-            both_starts[start] = both
-        if both > for_starts[start]: # blunt ends exist on the reverse strand
-            both_starts[start - nuc._cut_separation - 1] = both
-    for start in sorted(rev_starts.keys()): 
-            if start in both_starts.keys() or start - nuclease._cut_separation - 1 < 0: # only the ones not already examined
-                continue
-            both = for_starts.get(start + nuclease._cut_separation + 1, 0) + rev_starts.get(start, 0)
-            if both >= threshold:
-                both_starts[start] = both
-            if both > rev_starts[start]: # blunt ends exist on the forward strand
-                both_starts[start + nuc._cut_separation + 1] = both
+        both_starts[start] = max(both, both_starts.get(start, 0))
+        both_starts[start - nuc._cut_separation - 1] = max(both, both_starts.get(start - nuc._cut_separation - 1, 0))
+    for start in rev_starts.keys(): 
+        if start - nuclease._cut_separation - 1 < 0:
+            continue
+        both = for_starts.get(start + nuclease._cut_separation + 1, 0) + rev_starts.get(start, 0)
+        both_starts[start] = max(both, both_starts.get(start, 0))
+        both_starts[start + nuc._cut_separation + 1] = max(both, both_starts.get(start + nuc._cut_separation + 1, 0))
     return both_starts
 
 def get_pam(nuclease: Nuclease, chromosome: str, location: int, strand: str, fastaref):
     ref_pam = ""
-    s = None  # relative to the cutsite
-    e = None  # relative to the cutsite
+    s = -1  # 0-based chromosomal coordinate relative to the cutsite
+    e = -1
     if strand == "minus":  # +23 Cas12, -5 Cas9 CCNxxx
         s = location + nuclease.cut_sites[1] - nuclease.pam_loc - nuclease._pam_len + 1
     elif strand == "plus":  # -19 Cas12, +5 Cas9
         s = location + -1 * nuclease.cut_sites[0] + nuclease.pam_loc + nuclease._pam_len - 1
     e = s + nuclease._pam_len  # python closed end notation
     if s < 1:
-        return
+        return ""
     ref_pam = fastaref.fetch(reference=chromosome, start=s, end=e).upper()
     if strand == "minus":
         ref_pam = revcomp(ref_pam)
@@ -209,7 +205,7 @@ def get_blacklist(blacklist_fname):
             blacklist[chromosome] = [(int(start), int(end))]
         else:
             blacklist[chromosome].append((int(start), int(end)))
-    log.debug(f"{blacklist}")
+    log.debug(f"BLACKLIST: {blacklist}")
     f.close()
     return blacklist
 
@@ -301,6 +297,7 @@ if __name__ == '__main__':
                 continue
             start = read.reference_start
             end = read.reference_end
+            # log.debug(f"GOODREAD {read.query_name} {start} {end}")
             if read.mate_is_unmapped: # mate is unmapped
                 if not read.is_reverse: # read is not second in pair
                     for_starts[start] = for_starts.get(start, 0) + 1
@@ -311,68 +308,70 @@ if __name__ == '__main__':
             elif read.template_length < 0:  # second in pair
                 rev_starts[end - 1] = rev_starts.get(end - 1, 0) + 1
         
-        both_starts = combine_starts(nuc, for_starts, rev_starts, args.threshold)
-        log.debug(f"{for_starts}")
-        log.debug(f"{rev_starts}")
-        log.debug(f"{both_starts}")
-        log.debug(f"{chromosome} testing {len(both_starts.keys())} starts")
+        both_starts = combine_starts(nuc, for_starts, rev_starts)
+        if args.debug:
+            for key,value in for_starts.items():
+                log.debug(f"{chromosome} FORWARD START {key} {value}")
+            for key,value in rev_starts.items():
+                log.debug(f"{chromosome} REVERSE START {key} {value}")
+            for key,value in both_starts.items():
+                log.debug(f"{chromosome} BOTH START {key} {value}")
+            log.debug(f"{chromosome} testing {len(both_starts.keys())} starts")
 
         edited_count = {}
         ctrl_count = {}
         if args.control_bam:
             control_bamfile = pysam.AlignmentFile(args.control_bam, "rb")
         
-        for start in both_starts.keys():
-            if start-nuc._cut_separation-1 < 0 or start+nuc._cut_separation+1 > edited_bamfile.get_reference_length(chromosome):
-                edited_count[start] = both_starts[start]
+        for site, n_ends in both_starts.items():
+            if n_ends < args.threshold:
                 continue
-            edited_count[start] = edited_bamfile.count(contig=chromosome, start=start-nuc._cut_separation-1, stop=start+nuc._cut_separation+1, read_callback=check_read)
-            if args.control_bam:
-                ctrl_count[start] = control_bamfile.count(contig=chromosome, start=start-nuc._cut_separation-1, stop=start+nuc._cut_separation+1, read_callback=check_read)
-        if args.control_bam:
-            control_bamfile.close()
-
-        for start in sorted(both_starts.keys()):
             if blacklist != {}:
-                if location_in_blacklist(chromosome, start, blacklist):
+                if location_in_blacklist(chromosome, site, blacklist):
                     if args.verbose:
-                        log.info(f"{chromosome}:{start}-{start}\tFILTERED:blacklisted")
+                        log.info(f"{chromosome}:{site}-{site}\tFILTERED:blacklisted")
                     continue
             
-            bg_discoscore.append(sum_window(for_starts, rev_starts, start, window_size=window_size))
+            # get some stats about overall reads at this site
+            #if site-nuc._cut_separation-1 < 0 or site+nuc._cut_separation+1 > edited_bamfile.get_reference_length(chromosome):
+            #    edited_count[site] = n_ends
+            #edited_count[site] = edited_bamfile.count(contig=chromosome, start=site-nuc._cut_separation-1, stop=site+nuc._cut_separation+1, read_callback=check_read)
+            if args.control_bam:
+                ctrl_count[site] = control_bamfile.count(contig=chromosome, start=site-nuc._cut_separation-1, stop=site+nuc._cut_separation+1, read_callback=check_read)
+
+            # CALCULATE DISCO SCORE
+            score = sum_window(for_starts, rev_starts, site, window_size=window_size)
+            bg_discoscore.append(score)
             # filter if the control bam has many reads at this site
             if args.control_bam:
-                if ctrl_count[start] > 10:
+                if ctrl_count[site] > 10:
                     if args.verbose:
-                        log.info(f"CONTROL skipping {chromosome}:\t{start + 1}\t{ctrl_count[start]}")
+                        log.info(f"CONTROL skipping {chromosome}:\t{site + 1}\t{ctrl_count[site]}")
                     continue                        
             # filter if blunt ends are relatively rare at this site relative to total number of reads
             # don't filter if the nuclease is not blunt-cutting
-            if (both_starts[start] / edited_count[start] < 0.25) and "Cas9" in nuc.name:
-                if args.verbose:
-                    log.info(f"{chromosome}:x-x\t{start + 1}\t{both_starts[start]}\tFILTERED:deep area {both_starts[start] / edited_count[start]}")
-                continue
+            #if (n_ends / edited_count[site] < 0.25) and "Cas9" in nuc.name:
+            #    if args.verbose:
+            #        log.info(f"{chromosome}:x-x\t{site + 1}\t{n_ends}\tFILTERED:deep area {n_ends / edited_count[site]}")
+            #    continue
 
-            # CALCULATE DISCO SCORE
-            score = 0
-            score = sum_window(for_starts, rev_starts, start, window_size=window_size)
 
             if score < args.score_min:  # doesn't pass discover-score cutoff
                 if args.verbose:
-                    log.info(f"{chromosome}:x-x\t{start + 1}\t{score}\t{both_starts[start]}\tFILTERED:fails disco score {args.score_min}")
+                    log.info(f"{chromosome}:x-x\t{site + 1}\t{site}\t{n_ends}\tFILTERED:fails disco score {args.score_min}")
                 continue
 
             # START TESTS AGAINST REFERENCE SEQUENCE
-            pam_plus = get_pam(nuc, chromosome, start, "plus", reference_fasta)
-            pam_minus = get_pam(nuc, chromosome, start, "minus", reference_fasta)
-            log.debug(f"{chromosome}, {start}, {both_starts[start]}, {pam_minus}, {pam_plus}, {nuc.pam_seqs}")
+            pam_plus = get_pam(nuc, chromosome, site, "plus", reference_fasta)
+            pam_minus = get_pam(nuc, chromosome, site, "minus", reference_fasta)
+            log.debug(f"{chromosome}, {site}, {n_ends}, {pam_minus}, {pam_plus}, {nuc.pam_seqs}")
 
             # MINUS STRAND SITES
             strand = "" # should always get set. leave empty for debugging
             if pam_minus in nuc.pam_seqs:
                 strand = "antisense"
-                start1 = start + 1  # convert to 1-based indexing for output (pysam uses 0-based indexing)
-                result = check_reverse_sequence(nuc, args.guide, chromosome, start, pam_minus, args.max_mismatches, reference_fasta)
+                result = check_reverse_sequence(nuc, args.guide, chromosome, site, pam_minus, args.max_mismatches, reference_fasta)
+                site1 = site + 1  # convert to 1-based indexing for output (pysam uses 0-based indexing)
                 s1 = result['s'] + 1 # convert to 1-based indexing for output
                 e1 = result['e'] + 1 # convert to 1-based indexing for output
                 pam_fullseq = result['pam_fullseq']
@@ -381,7 +380,7 @@ if __name__ == '__main__':
 
                 if result['success']:
                     nsites += 1 # we found a site
-                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":start1, "Discoscore":score, "Cutsite Ends":both_starts[start], "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm} 
+                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":site1, "Discoscore":score, "Cutsite Ends":n_ends, "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm} 
                     for key in sitedict.keys():
                         outdict[key].append(sitedict[key])
                     if args.verbose:
@@ -389,15 +388,15 @@ if __name__ == '__main__':
                 else:
                     if args.verbose:
                         if result['mm'] and result['mm'] >= args.max_mismatches:
-                            log.info(f"{chromosome}:{s1}-{e1}\t{start1}\t{score}\t{both_starts[start]}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: {mm} mismatches")
+                            log.info(f"{chromosome}:{s1}-{e1}\t{site1}\t{score}\t{n_ends}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: {mm} mismatches")
                         if result['s'] < 0 or result['e'] < 0:
-                            log.info(f"{chromosome}:{s1}-{e1}\t{start1}\t{score}\t{both_starts[start]}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: too close to start of chromosome")
+                            log.info(f"{chromosome}:{s1}-{e1}\t{site1}\t{score}\t{n_ends}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: too close to start of chromosome")
 
             # PLUS STRAND SITES
             if pam_plus in nuc.pam_seqs:
                 strand = "sense"
-                start1 = start + 1  # convert to 1-based indexing for output (pysam uses 0-based indexing)
-                result = check_forward_sequence(nuc, args.guide, chromosome, start, pam_plus, args.max_mismatches, reference_fasta)
+                result = check_forward_sequence(nuc, args.guide, chromosome, site, pam_plus, args.max_mismatches, reference_fasta)
+                site1 = site + 1  # convert to 1-based indexing for output (pysam uses 0-based indexing)
                 s1 = result['s'] + 1 # convert to 1-based indexing for output
                 e1 = result['e'] + 1 # convert to 1-based indexing for output
                 pam_fullseq = result['pam_fullseq']
@@ -406,7 +405,7 @@ if __name__ == '__main__':
 
                 if result['success']:
                     nsites += 1 # we found a site
-                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":start1, "Discoscore":score, "Cutsite Ends":both_starts[start], "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm} 
+                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":site1, "Discoscore":score, "Cutsite Ends":n_ends, "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm} 
                     for key in sitedict.keys():
                         outdict[key].append(sitedict[key])
                     if args.verbose:
@@ -414,14 +413,15 @@ if __name__ == '__main__':
                 else:
                     if args.verbose:
                         if result['mm'] and result['mm'] >= args.max_mismatches:
-                            log.info(f"{chromosome}:{s1}-{e1}\t{start1}\t{score}\t{both_starts[start]}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: {mm} mismatches")
+                            log.info(f"{chromosome}:{s1}-{e1}\t{site1}\t{score}\t{n_ends}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: {mm} mismatches")
                         if result['s'] < 0 or result['e'] < 0:
-                            log.info(f"{chromosome}:{s1}-{e1}\t{start1}\t{score}\t{both_starts[start]}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: too close to start of chromosome")
+                            log.info(f"{chromosome}:{s1}-{e1}\t{site1}\t{score}\t{n_ends}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: too close to start of chromosome")
         log.info(f"Found {nsites} unfiltered sites on {chromosome}")
     edited_bamfile.close()
     reference_fasta.close()
     
     df = pd.DataFrame.from_dict(outdict)
+    df.sort_values(by=['Discoscore'], inplace=True)
     df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
     df['z_discoscore'] = (df['Discoscore'] - statistics.mean(bg_discoscore)) / statistics.stdev(bg_discoscore)
 
