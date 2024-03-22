@@ -7,7 +7,7 @@ BLENDER is a companion program to the DISCOVER-Seq assay to identify off-target 
 
 As of March 2023, there are [two versions of BLENDER.](#blender-versions)
 * "New" BLENDER (aka ["BLENDER2"](#blender2-aka-blender2py)) uses the same logic as classic BLENDER, but has been rewritten to be much faster and easier to develop against. BLENDER2 will replace BLENDER for all future uses of DISCOVER-seq. Stay tuned for several updates to BLENDER2!
-* "Classic" BLENDER (aka ["BLENDER"](#blender-aka-blenderpl)) is the original software reported in [Wienert and Wyman et al Science 2019.](https://pubmed.ncbi.nlm.nih.gov/31000663/) It is battle-tested but is quite slow. A single run can take 1-2 days on a single CPU, depending on sequencing depth. It is also very hard to develop against, and so new features have lagged behind. BLENDER is provided so that one can compare to historical datasets/results.
+* "Classic" BLENDER (aka ["BLENDER"](#blender-aka-blenderpl)) is the original software reported in [Wienert and Wyman et al Science 2019.](https://pubmed.ncbi.nlm.nih.gov/31000663/) It is battle-tested but slow. A single run can take 1-2 days on a single CPU, depending on sequencing depth. It is also very hard to develop against, and so new features have lagged behind. BLENDER is provided so that one can compare to historical datasets/results.
 
 ## Running BLENDER
 BLENDER has a driver script run_blender.sh that takes several argmuments and runs identification of putative hits, filtering of those hits, and then creates an SVG of the aligned hits. Files are stored in the output directory given as a parameter to the bash script.
@@ -29,7 +29,7 @@ These will run blender with option c set to 3 (details below), this means the pr
 
 # Blender versions
 There are two major versions of blender:
-* blender2.py: This uses the same logic as blender.pl, but is rewritten to be more flexible and have a much faster backend. It takes approximately one minute for a typical run to complete. It finds the same sites as blender.pl, but with very slight changes to the score. The Corn Lab has switched to using blender2.py, and this version will be the one developed against for all future versions.
+* blender2.py: This uses the same logic as blender.pl, but is rewritten to be more flexible and have a much faster backend. It takes 5-10 minutes for a typical run to complete. It finds the same sites as blender.pl, but with very slight changes to the score. The Corn Lab has switched to using blender2.py, and this version will be the one developed against for all future versions.
 * blender.pl: This version was originally published in Wienert & Wyman et al Science 2019. It is  very slow, but has been extensively benchmarked. A single-CPU run can take as long as 1 day to complete and the newer multi-CPU mode can reduce this to 1 hour or so if you have many CPUs. It only works with blunt-cutting Cas enzymes that have a cutsite and PAM location identical to SpyCas9.
 
 # BLENDER2 aka blender2.py
@@ -39,11 +39,13 @@ pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed v
 
 ## To run the blender script directly:
 
-        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed -o unfiltered_output.txt
+        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed -o unfiltered_output.txt
 
-        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.blacklist.bed --filter -o output.txt
+        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o output.txt
 
 BLENDER can be run with or without filtering based on number of mismatches and score. We have so far never found a false-negative that was inappropriately filtered out. But we provide the option of outputting unfiltered, raw results just in case you're curious about every single possible hit.
+
+Note that blender does not require the separate filter.pl used by blender.pl
 <CENTER>
 
 ![scoring scheme](https://github.com/cornlab/blender/blob/master/scoring_scheme.png?raw=true)
@@ -65,13 +67,13 @@ BLENDER can be run with or without filtering based on number of mismatches and s
 
 `-b` `--blacklist`      Blacklist to use for filtering hits, e.g. from ENCODE (BED format). **Very strongly recommended**
 
-`--filter`              Filter results (previously accomplished by separate `filter.pl` script) **Recommended to clean up noise**
+`--filter`              Filter results by score and mismatches (previously accomplished by separate `filter.pl` script) **Recommended to clean up noise**
 
 `-w` `--window_size`    Override nuclease-default window size for score summing. Cas9 default = 5, Cas12 default = 10'
 
-`-p` `--pams`           Override nuclease (set by `-n`) default PAMs with a space-separated list e.g. `-p GG AG`
+`-p` `--pams`           Override nuclease default PAMs with a space-separated list. Does not include the degenerate base. e.g. `-p GG AG`
 
-`-t` `--threshold`      Threshold for number of read ends exactly at a putative cut site (default 3). For maximum sensitivity, this can be set to 2 and the filtering scheme applied. **Note that this was formerly option `-c` in blender.pl, but is now `-t` to avoid confusion with the control BAM file!**
+`-t` `--threshold`      Threshold for number of read ends exactly at a putative cut site (default 3). **Note that this was formerly option `-c` in blender.pl, but is now `-t` to avoid confusion with the control BAM file!**
 
 `-s` `--score_min`      Minimum aggregated score across a 5-base window around the cutsite to consider a hit (default 3)
 
@@ -79,8 +81,7 @@ BLENDER can be run with or without filtering based on number of mismatches and s
 
 `-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 20)
 
-`--verbose`             This flag will turn on output of filtered out candidates while running if filtered out for more than maximum mismatches (8) in the guide sequence, or the hit occurs in a blacklist region or it is in a very deep region and 
-thus likely an artifact.
+`--verbose`             This flag will turn on output of filtered out candidates while running. These sites are not written to the output file, but a log can be captured for troubleshooting.
 
 # BLENDER aka blender.pl 
 Older, much slower, more tested
@@ -132,15 +133,13 @@ thus likely an artifact.
 
 # Output
 
-Both blender.pl and blender2.py have identical output formats.
-
-The automated bash scripts output `unfiltered_blender_hits.txt`, `filtered_blender_hits.txt` and `blender_hits.svg` to the output directory provided by the user. This raw unfiltered output can be used for exploring bamfiles to assess whether adjustments might be needed for the scoring scheme. The output text files have the following columns: 
+blender.pl and blender2.py have similar output formats.
 
 `Chr:Start-End`  Genomic coordinates of the putative guide
 
 `Cutsite`  Where the cutsite is within the guide
 
-`Disco score` Score given to the hit. Essentially summing a window of read ends around the cut site
+`Discoscore` Score given to the hit. Essentially summing a window of read ends around the cut site
 
 `Cutsite Ends` This is the number of read ends that pile up at the cutsite. When you set the 'c' parameter, it is this value that is set. 
 
@@ -150,7 +149,27 @@ The automated bash scripts output `unfiltered_blender_hits.txt`, `filtered_blend
 
 `Mismatches`
 
-The scripts also create an svg image of the hits something like this.
+`norm_discoscore` normalized Discoscore across all *unfiltered* hits, ranging from 0-1. **only in blender2**
+
+`z_discoscore` Z-score of the Disoscore vs all other Discoscores at all other blunt reads in the entire genome. This need not be very large, but should not be negative. **only in blender2**
+
+The automated bash scripts output `unfiltered_blender_hits.txt`, `filtered_blender_hits.txt` and `blender_hits.svg` to the output directory provided by the user. This raw unfiltered output can be used for exploring bamfiles to assess whether adjustments might be needed for the scoring scheme. 
+
+# Pretty pictures
+You can use draw_blender_fig.py to create an svg image of the hits from either blender or blender2.
+
+`-i`, `--infile`        blender output file to draw
+
+`-o`, `--outfile`       output filename
+
+`-g`, `--guide`         Guide RNA sequence (5\' to 3\')
+
+`-p`, `--pam`           PAM to output (5\' to 3\')
+
+`-l`, `--location`      PAM location (5\' or 3\' of the guide RNA). Default 3
+
+`-t`, `--title`         Optional title to add to the plot"
+
 
 ![blender sample output](https://github.com/cornlab/blender/blob/master/blender_hits.png?raw=true)
 
