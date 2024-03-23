@@ -421,7 +421,7 @@ if __name__ == '__main__':
     reference_fasta.close()
     
     df = pd.DataFrame.from_dict(outdict)
-    df.sort_values(by=['Discoscore'], inplace=True)
+    df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
     df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
     df['z_discoscore'] = (df['Discoscore'] - statistics.mean(bg_discoscore)) / statistics.stdev(bg_discoscore)
 
