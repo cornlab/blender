@@ -87,9 +87,9 @@ Note that blender does not require the separate filter.pl used by blender.pl
 `--verbose`             This flag will turn on output of filtered out candidates while running. These sites are not written to the output file, but a log can be captured for troubleshooting.
 
 # BLENDER2_MP aka blender2_mp.py
-This is the same as blender2.py, but has an extra option to allow parallel processing. Note that running this with just one core is actually **slower** than blender2.py. But you running blender2_mp.py over many cores in parallel for each chromosome can give a speed increase of up to 6x.
+This is the same as blender2.py, but has an extra option to allow parallel processing. Note that running this with just one core is actually **slower** than blender2.py. But running blender2_mp.py over many cores in parallel for each chromosome can give a speed increase of up to 6x.
 
-`-j` `--nproc`		Number of parallel processes to start (default 2). Runs 2 process per chromosome, and so maxes out at the number of chromosomes in your bamfile or reference fasta.
+`-j` `--nproc`		Number of parallel processes to start (default 2). Parallelizes per chromosome, and so maxes out at the number of chromosomes in your bamfile or reference fasta.
 
 
 # BLENDER aka blender.pl 
