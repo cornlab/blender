@@ -39,9 +39,12 @@ pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed v
 
 ## To run the blender script directly:
 
-        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed -o unfiltered_output.txt
+`python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed -o unfiltered_output.txt`
 
-        python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o output.txt
+`python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o output.txt`
+        
+`python blender2_mp.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o output.txt -j <number parallel processes>`
+
 
 BLENDER can be run with or without filtering based on number of mismatches and score. We have so far never found a false-negative that was inappropriately filtered out. But we provide the option of outputting unfiltered, raw results just in case you're curious about every single possible hit.
 
@@ -82,6 +85,12 @@ Note that blender does not require the separate filter.pl used by blender.pl
 `-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 20)
 
 `--verbose`             This flag will turn on output of filtered out candidates while running. These sites are not written to the output file, but a log can be captured for troubleshooting.
+
+# BLENDER2_MP aka blender2_mp.py
+This is the same as blender2.py, but has an extra option to allow parallel processing. Note that running this with just one core is actually **slower** than blender2.py. But you running blender2_mp.py over many cores in parallel for each chromosome can give a speed increase of up to 6x.
+
+`-j` `--nproc`		Number of parallel processes to start (default 2). Runs 2 process per chromosome, and so maxes out at the number of chromosomes in your bamfile or reference fasta.
+
 
 # BLENDER aka blender.pl 
 Older, much slower, more tested
