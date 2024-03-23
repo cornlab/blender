@@ -94,7 +94,6 @@ def parse_arguments():
     parser.add_argument('--verbose', action='store_true', default=False, help="verbose output")
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
     parser.add_argument('-q', '--mapq', type=int, default=20, help='MAPQ value of reads (default 20)')
-    parser.add_argument('-j', '--nproc', type=int, default=1, help='number of processes to use (default 1)')
     args = parser.parse_args()
     return args
 
