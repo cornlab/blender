@@ -160,7 +160,7 @@ blender.pl and blender2.py have similar output formats.
 
 `norm_discoscore` normalized Discoscore across all *unfiltered* hits, ranging from 0-1. **only in blender2**
 
-`z_discoscore` Z-score of the Disoscore vs all other Discoscores at all other blunt reads in the entire genome. This need not be very large, but should not be negative. **only in blender2**
+`z_discoscore` Z-score of the Disoscore vs all other Discoscores at all other blunt reads in the entire genome. **only in blender2**
 
 The automated bash scripts output `unfiltered_blender_hits.txt`, `filtered_blender_hits.txt` and `blender_hits.svg` to the output directory provided by the user. This raw unfiltered output can be used for exploring bamfiles to assess whether adjustments might be needed for the scoring scheme. 
 
