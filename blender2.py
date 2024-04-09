@@ -3,7 +3,7 @@ import pysam
 import argparse
 import logging
 import sys
-import statistics
+import numpy as np
 import pandas as pd
 
 
@@ -421,10 +421,12 @@ if __name__ == '__main__':
     reference_fasta.close()
     
     log.info(f"Calculating statistics across {len(outdict.keys())} candidate sites and {len(bg_discoscores)} background sites.")
+    bg_discoscores_mean = np.mean(bg_discoscores)
+    bg_discoscores_std = np.std(bg_discoscores)
     df = pd.DataFrame.from_dict(outdict)
     df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
     df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
-    df['z_discoscore'] = (df['Discoscore'] - statistics.mean(bg_discoscores)) / statistics.stdev(bg_discoscores)
+    df['z_discoscore'] = (df['Discoscore'] - bg_discoscores_mean) / bg_discoscores_std
 
     if args.filter:
         df = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
