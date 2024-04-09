@@ -425,12 +425,16 @@ if __name__ == '__main__':
     bg_discoscores_std = np.std(bg_discoscores)
     df = pd.DataFrame.from_dict(outdict)
     df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
-    df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
     df['z_discoscore'] = (df['Discoscore'] - bg_discoscores_mean) / bg_discoscores_std
 
     if args.filter:
+        log.info(f"Filtering sites based on score and number of mismatches")
         df = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
         df = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
         df = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
+    if len(df.index) == 1: # if there's only one site, we can't min/max normalize
+        df['norm_discoscore'] = 1.0
+    else:
+        df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
     df.to_csv(f"{args.output}", index=False, sep='\t')
-    log.info(f"Sites written to {args.output}")
+    log.info(f"{len(df.index)} site(s) written to {args.output}")
