@@ -421,10 +421,10 @@ if __name__ == '__main__':
     reference_fasta.close()
     
     log.info(f"Calculating statistics across {len(outdict.keys())} candidate sites and {len(bg_discoscores)} background sites.")
+    # Z SCORE
     bg_discoscores_mean = np.mean(bg_discoscores)
     bg_discoscores_std = np.std(bg_discoscores)
     df = pd.DataFrame.from_dict(outdict)
-    df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
     df['z_discoscore'] = (df['Discoscore'] - bg_discoscores_mean) / bg_discoscores_std
 
     if args.filter:
@@ -432,9 +432,14 @@ if __name__ == '__main__':
         df = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
         df = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
         df = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
+    
+    # MIN/MAX NORMALIZE
     if len(df.index) == 1: # if there's only one site, we can't min/max normalize
         df['norm_discoscore'] = 1.0
     else:
         df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
+    
+    # SORT AND OUTPUT
+    df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
     df.to_csv(f"{args.output}", index=False, sep='\t')
     log.info(f"{len(df.index)} site(s) written to {args.output}")
