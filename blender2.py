@@ -277,7 +277,7 @@ if __name__ == '__main__':
     edited_bamfile = pysam.AlignmentFile(args.experiment_bam, "rb")
     # Get the chromosome lengths from the header
     chromosome_lengths = dict(zip(edited_bamfile.references, edited_bamfile.lengths))
-    bg_discoscore = [] # used to calculate background distribution for z-score
+    bg_discoscores = [] # used to calculate background distribution for z-score
 
     for chromosome in edited_bamfile.references:
         if chromosome not in reference_fasta.references:
@@ -323,6 +323,9 @@ if __name__ == '__main__':
             control_bamfile = pysam.AlignmentFile(args.control_bam, "rb")
         
         for site, n_ends in both_starts.items():
+            score = sum_window(for_starts, rev_starts, site, window_size=window_size)
+            bg_discoscores.append(score)
+            
             if n_ends < args.threshold:
                 continue
             if blacklist != {}:
@@ -339,8 +342,6 @@ if __name__ == '__main__':
                 ctrl_count[site] = control_bamfile.count(contig=chromosome, start=site-nuc._cut_separation-1, stop=site+nuc._cut_separation+1, read_callback=check_read)
 
             # CALCULATE DISCO SCORE
-            score = sum_window(for_starts, rev_starts, site, window_size=window_size)
-            bg_discoscore.append(score)
             # filter if the control bam has many reads at this site
             if args.control_bam:
                 if ctrl_count[site] > 10:
@@ -419,14 +420,15 @@ if __name__ == '__main__':
     edited_bamfile.close()
     reference_fasta.close()
     
+    log.info(f"Calculating statistics across {len(outdict.keys())} candidate sites and {len(bg_discoscores)} background sites.")
     df = pd.DataFrame.from_dict(outdict)
     df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
     df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
-    df['z_discoscore'] = (df['Discoscore'] - statistics.mean(bg_discoscore)) / statistics.stdev(bg_discoscore)
+    df['z_discoscore'] = (df['Discoscore'] - statistics.mean(bg_discoscores)) / statistics.stdev(bg_discoscores)
 
     if args.filter:
         df = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
         df = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
         df = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
     df.to_csv(f"{args.output}", index=False, sep='\t')
-    
+    log.info(f"Sites written to {args.output}")
