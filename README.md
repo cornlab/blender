@@ -62,7 +62,7 @@ Note that blender does not require the separate filter.pl used by blender.pl
 
 `-o` `--output`         Output file **Required**
 
-`-c` `--control`        Control bamfile. This is a ChIP-Seq for MRE11 pulldown from either unedited cells or cells that have been edited with a non-targeting gRNA. If there are greater than 10 reads in the control sample, the hit in the edited sample is filtered out. **Recommended**
+`-c` `--control`        Control bamfile. This is a ChIP-Seq for MRE11 pulldown from either unedited cells or cells that have been edited with a non-targeting gRNA. If there are greater than 10 reads in the control sample, the hit in the edited sample is filtered out.
 
 `-n` `--nuclease`       Nuclease to search for. Current possibilities are: `SpyCas9`, `SaCas9`, `LbCas12a`, `AsCas12a`. **Required.**
 
