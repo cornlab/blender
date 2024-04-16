@@ -433,11 +433,8 @@ if __name__ == '__main__':
         df = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
         df = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
     
-    # MIN/MAX NORMALIZE
-    if len(df.index) == 1: # if there's only one site, we can't min/max normalize
-        df['norm_discoscore'] = 1.0
-    else:
-        df['norm_discoscore'] = (df['Discoscore'] - df['Discoscore'].min()) / (df['Discoscore'].max() - df['Discoscore'].min())
+    # NORMALIZE TO FRACTION OF MAX
+    df['norm_discoscore'] = df['Discoscore'] / df['Discoscore'].max()
     
     # SORT AND OUTPUT
     df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
