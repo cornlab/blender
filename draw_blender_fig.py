@@ -19,6 +19,7 @@ def parse_arguments():
     parser.add_argument('-p', '--pam', metavar='PAM', required=True, help='PAM to output (5\' to 3\')')
     parser.add_argument('-l', '--location', type=int, default=3, help="PAM location (5\' or 3\' of the guide RNA). Default 3\'")
     parser.add_argument('-t', '--title', type=str, help="Optional title to add to the plot")
+    parser.add_argument('--notext', action='store_true')
     args = parser.parse_args()
     return args
 
@@ -50,7 +51,7 @@ def parseSitesFile(infile):
     return offtargets 
 
 
-def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, location: int,  title=None):
+def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, location: int,  drawseqs=True, title=None):
 
     # Get offtargets array from file
     offtargets  = parseSitesFile(infile)
@@ -116,7 +117,8 @@ def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, 
                 dwg.add(dwg.text(u"\u2022", insert=(x + 4.5, 2 * box_size + y - 4), fill='black', style="font-size:10px; font-family:Courier"))
             else:
                 dwg.add(dwg.rect((x, box_size + y), (box_size, box_size), fill=colors[c]))
-                dwg.add(dwg.text(c, insert=(x + 3, 2 * box_size + y - 3), fill='black', style="font-size:15px; font-family:Courier"))
+                if drawseqs:
+                    dwg.add(dwg.text(c, insert=(x + 3, 2 * box_size + y - 3), fill='black', style="font-size:15px; font-family:Courier"))
 
         y = y_offset + box_size * (j + 2) - 2
         sa = "font-size:14px; font-family:Arial"
@@ -143,4 +145,5 @@ if __name__ == '__main__':
     pam = args.pam
     location = args.location
     title = args.title
-    visualizeOfftargets(infile, outfile, guide, pam, location, title=title)
+    drawseqs = not args.notext
+    visualizeOfftargets(infile, outfile, guide, pam, location, drawseqs, title=title)
