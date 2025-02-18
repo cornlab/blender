@@ -35,9 +35,9 @@ There are two major versions of blender:
 # BLENDER2 aka blender2.py
 Faster, more flexible, less tested
 ## Requirements
-pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed via conda)
-pandas https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
-numpy https://numpy.org/install/
+- [ ] pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed via conda)
+- [ ] pandas https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
+- [ ] numpy https://numpy.org/install/
 
 ## To run the blender script directly:
 
