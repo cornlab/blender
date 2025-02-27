@@ -420,7 +420,7 @@ if __name__ == '__main__':
     edited_bamfile.close()
     reference_fasta.close()
     
-    log.info(f"Calculating statistics across {len(outdict.keys())} candidate sites and {len(bg_discoscores)} background sites.")
+    # log.info(f"Calculating statistics across {len(outdict.keys())} candidate sites and {len(bg_discoscores)} background sites.")
     # Z SCORE
     bg_discoscores_mean = np.mean(bg_discoscores)
     bg_discoscores_std = np.std(bg_discoscores)
@@ -429,9 +429,11 @@ if __name__ == '__main__':
 
     if args.filter:
         log.info(f"Filtering sites based on score and number of mismatches")
-        df = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
-        df = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
-        df = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
+        filter1 = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
+        filter2 = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
+        filter3 = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
+        df = pd.merge(filter1, filter2, how = "outer")
+        df = pd.merge(df, filter3, how = "outer")
     
     # NORMALIZE TO FRACTION OF MAX
     df['norm_discoscore'] = df['Discoscore'] / df['Discoscore'].max()
@@ -440,3 +442,4 @@ if __name__ == '__main__':
     df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
     df.to_csv(f"{args.output}", index=False, sep='\t')
     log.info(f"{len(df.index)} site(s) written to {args.output}")
+
