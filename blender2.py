@@ -78,7 +78,8 @@ def parse_arguments():
     parser.add_argument('-f', '--experiment_bam', required=True, help='experimental BAM (required)')
     parser.add_argument('-o', '--output', required=True, help='output file (required)')
     parser.add_argument('-c', '--control_bam', help='control BAM (optional, but highly recommended)')
-    parser.add_argument('--filter', action='store_true', help='Filter sites based on score and number of mismatches (default: False)')
+    parser.add_argument('--filter', action='store_true', help='Weak filter sites based on score and number of mismatches (default: False)')
+    parser.add_argument('--filter_pool', action='store_true', help='Stringent filter sites based on score and number of mismatches. Recommended! (default: False)')
     parser.add_argument('-g', '--guide', required=True,
                         help="On-target guide RNA sequence. Required. provided 5'-3' without the PAM sequence")
     parser.add_argument('-t', '--threshold', type=int, default=3,
@@ -95,6 +96,10 @@ def parse_arguments():
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
     parser.add_argument('-q', '--mapq', type=int, default=20, help='MAPQ value of reads (default 20)')
     args = parser.parse_args()
+    if args.filter_pool and args.filter:
+        log.error(f"Cannot use both --filter and --filter_pool. Exiting.")
+        sys.exit(1)
+
     return args
 
 def check_read(read, min_MQ = None, blacklist = None):
@@ -428,13 +433,21 @@ if __name__ == '__main__':
     df['z_discoscore'] = (df['Discoscore'] - bg_discoscores_mean) / bg_discoscores_std
 
     if args.filter:
-        log.info(f"Filtering sites based on score and number of mismatches")
+        log.info(f"Weak filtering sites based on score and number of mismatches")
         filter1 = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
-        filter2 = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 2)]
+        filter2 = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 3)]
         filter3 = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
         df = pd.merge(filter1, filter2, how = "outer")
         df = pd.merge(df, filter3, how = "outer")
-    
+    elif args.filter_pool:
+        log.info(f"Stringent filtering sites based on score and number of mismatches")
+        filter1 = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 5)]
+        filter2 = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 4)]
+        filter3 = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 3)]
+        df = pd.merge(filter1, filter2, how = "outer")
+        df = pd.merge(df, filter3, how = "outer")
+
+
     # NORMALIZE TO FRACTION OF MAX
     df['norm_discoscore'] = df['Discoscore'] / df['Discoscore'].max()
     
