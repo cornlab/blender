@@ -432,8 +432,6 @@ if __name__ == '__main__':
     bg_discoscores_std = np.std(bg_discoscores)
     df = pd.DataFrame.from_dict(outdict)
     df['z_discoscore'] = (df['Discoscore'] - bg_discoscores_mean) / bg_discoscores_std
-    # NORMALIZE TO FRACTION OF MAX
-    df['norm_discoscore'] = df['Discoscore'] / df['Discoscore'].max()
 
     if args.filter:
         log.info(f"Weak filtering sites based on score and number of mismatches")
@@ -450,6 +448,8 @@ if __name__ == '__main__':
         df = pd.merge(filter1, filter2, how = "outer")
         df = pd.merge(df, filter3, how = "outer")
 
+    # NORMALIZE TO FRACTION OF MAX
+    df['norm_discoscore'] = df['Discoscore'] / df['Discoscore'].max()
     
     # SORT AND OUTPUT
     df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
