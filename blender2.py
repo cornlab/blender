@@ -24,7 +24,7 @@ class Nuclease():
     _protospacer_len: int
     pam_seqs: tuple  # all possible pams (should all be the same length)
     _pam_len: int
-    pam_loc: int  # relative to the 3' end of the protospacer
+    pam_loc: int  # start of the PAM relative to the 3' end of the protospacer
     cut_sites: tuple  # relative to the 3' end of the protospacer:  (top,bottom)
     _cut_separation: int
 
@@ -52,18 +52,39 @@ class Nuclease():
         elif "Cas12a" in self.name:
             if "As" in self.name:
                 self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
-                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq)+1) * -1 # constant PAM + degen PAM + protospacer + python open end notation
+                self.pam_loc = -1*max([len(x) for x in self.pam_seqs]) -1 + -1*len(self.protospacer_seq) # constant PAM + degenerate base + protospacer
                 self.cut_sites = (-5, -1)
             elif "Lb" in self.name:
                 self.pam_seqs = ("TTT", "TCC", "CTT", "TCT", "TTC")
-                self.pam_loc = (max([len(x) for x in self.pam_seqs]) + 1 + len(self.protospacer_seq)+1) * -1
+                self.pam_loc = -1*max([len(x) for x in self.pam_seqs]) -1 + -1*len(self.protospacer_seq) # constant PAM + degenerate base + protospacer
                 self.cut_sites = (-6, 2)
             else:
                 raise TypeError(f"Nuclease {self.name} not recognized!")
         elif "Cas12f" in self.name:
-            pass
+            if "Un1" in self.name:
+                self.pam_seqs = ("TTTG", "TTTA")
+                self.pam_loc = -1*max([len(x) for x in self.pam_seqs]) + -1*len(self.protospacer_seq) # constant PAM + degenerate base + protospacer
+                self.cut_sites = (-2, 4)
+            else:
+                raise TypeError(f"Nuclease {self.name} not recognized!")
         elif "TnpB" in self.name:
-            pass
+            if "ISDra2" in self.name:
+                # [[TGC][TCA][GT]A[TC]
+                self.pam_seqs = (
+                    "TTGAT", "TTGAC", "TTTAT", "TTTAC",
+                    "TCGAT", "TCGAC", "TCTAT", "TCTAC",
+                    "TAGAT", "TAGAC", "TATAT", "TATAC",
+                    "GTGAT", "GTGAC", "GTTAT", "GTTAC",
+                    "GCGAT", "GCGAC", "GCTAT", "GCTAC",
+                    "GAGAT", "GAGAC", "GATAT", "GATAC",
+                    "CTGAT", "CTGAC", "CTTAT", "CTTAC",
+                    "CCGAT", "CCGAC", "CCTAT", "CCTAC",
+                    "CAGAT", "CAGAC", "CATAT", "CATAC"
+                )
+                self.pam_loc = max([len(x) for x in self.pam_seqs])*-1 + len(self.protospacer_seq)*-1 # constant PAM + protospacer
+                self.cut_sites = (-1, 5)
+            else:
+                raise TypeError(f"Nuclease {self.name} not recognized!")                
         else:
             raise TypeError("Nuclease not recognized!")
         self._cut_separation = abs(self.cut_sites[0] - self.cut_sites[1])
@@ -162,14 +183,14 @@ def get_pam(nuclease: Nuclease, chromosome: str, location: int, strand: str, fas
     ref_pam = ""
     s = -1  # 0-based chromosomal coordinate relative to the cutsite
     e = -1
-    if strand == "minus":  # +23 Cas12, -5 Cas9 CCNxxx
-        s = location + nuclease.cut_sites[1] - nuclease.pam_loc - nuclease._pam_len + 1
-    elif strand == "plus":  # -19 Cas12, +5 Cas9
-        s = location + -1 * nuclease.cut_sites[0] + nuclease.pam_loc + nuclease._pam_len - 1
+    if strand == "minus":  # Cas12 xxxBTTT, Cas9 CCNxxx
+        s = location + nuclease.cut_sites[1] - nuclease.pam_loc - nuclease._pam_len
+    elif strand == "plus":  # Cas12 TTTVxxx, Cas9 xxxNGG
+        s = location + -1*nuclease.cut_sites[0] + nuclease.pam_loc
     e = s + nuclease._pam_len  # python closed end notation
     if s < 1:
         return ""
-    ref_pam = fastaref.fetch(reference=chromosome, start=s, end=e).upper()
+    ref_pam = fastaref.fetch(reference=chromosome, start=s+1, end=e+1).upper() # convert to 1-based indexing
     if strand == "minus":
         ref_pam = revcomp(ref_pam)
     return ref_pam
@@ -216,7 +237,7 @@ def get_blacklist(blacklist_fname):
 
 def check_reverse_sequence(nuc: Nuclease, input_guide: str, chromosome: str, start: int, pam_minus: str, max_mismatches: int, reference_fasta: pysam.FastaFile) -> dict: # {'success': True/False, 'e': int, 's': int, 'guide': str, 'pam_fullseq': str, 'mm': int}
     if nuc.pam_loc < 0:
-        pam_fullseq = pam_minus + abs(nuc.pam_loc + nuc._protospacer_len + nuc._pam_len) * 'N'
+        pam_fullseq = pam_minus + abs(nuc.pam_loc + len(pam_plus) + nuc._protospacer_len ) * 'N'
     else:
         pam_fullseq = 'N' * nuc.pam_loc + pam_minus
     # s : Cas9 start-3,   Cas12 start-1
@@ -233,7 +254,7 @@ def check_reverse_sequence(nuc: Nuclease, input_guide: str, chromosome: str, sta
 
 def check_forward_sequence(nuc: Nuclease, input_guide: str, chromosome: str, start: int, pam_plus: str, max_mismatches: int, reference_fasta: pysam.FastaFile) -> dict:
     if nuc.pam_loc < 0:
-        pam_fullseq = pam_plus + abs(nuc.pam_loc + nuc._protospacer_len + nuc._pam_len) * 'N'
+        pam_fullseq = pam_plus + abs(nuc.pam_loc + len(pam_plus) + nuc._protospacer_len ) * 'N'
     else:
         pam_fullseq = 'N' * nuc.pam_loc + pam_plus
     # s: Cas9 start -17, Cas12 start-19
