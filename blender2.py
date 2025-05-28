@@ -117,6 +117,8 @@ def parse_arguments():
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
     parser.add_argument('-q', '--mapq', type=int, default=20, help='MAPQ value of reads (default 20)')
     args = parser.parse_args()
+    args.pams = [x.upper() for x in args.pams] if args.pams else None  # convert to uppercase
+    args.guide = args.guide.upper()  # convert to uppercase
     if args.filter_pool and args.filter:
         log.error(f"Cannot use both --filter and --filter_pool. Exiting.")
         sys.exit(1)
