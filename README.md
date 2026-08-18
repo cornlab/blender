@@ -37,7 +37,6 @@ Faster, more flexible, less tested
 ## Requirements
 - [ ] pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed via conda)
 - [ ] pandas https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
-- [ ] numpy https://numpy.org/install/
 
 ## To run the blender script directly:
 
@@ -85,11 +84,50 @@ Faster, more flexible, less tested
 
 `-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 10)
 
+`-j` `--workers`        Number of chromosomes to process concurrently within one run (default 1). Leave this at 1 when `batch_blender2.py` is already running multiple BAMs in parallel.
+
 `--verbose`             This flag will turn on output of filtered out candidates while running. These sites are not written to the output file, but a log can be captured for troubleshooting.
 
 `--filter`              Filter results per the original "filter.pl" script
 
 `--filter_strict`       Filter results per the original "filter_pool.pl" script
+
+`j` `--nproc`           Number of processors to use, parallelizing per chromosome. Default 1.
+
+## Batch running blender2
+
+`batch_blender2.py` runs `blender2.py` concurrently for the BAM/guide pairs (one core per BAM/guide) in a
+CSV manifest. Each non-blank row must contain either `bam,guide` or a legacy
+`bam,guide,site` form; the site column is accepted but ignored. Relative BAM
+paths are resolved relative to the manifest. Outputs are written as
+`<GUIDE>_<bam-stem>_blender.tsv` in an existing output directory.
+
+For example, a two-sample VEGFA manifest can contain:
+
+```csv
+/mnt/data/myEMX1.bam,ACCGAGCGCCGAGTCCTTCC
+/mnt/data/myVEGFA.bam,GACCCCCTCCACCCCGCCTC
+```
+
+Run both rows with the common options from the equivalent individual commands:
+
+```sh
+batch_blender2.py \
+  --manifest samples.csv \
+  --blender /home/user/bin/blender/blender2.py \
+  --nuclease SpyCas9 \
+  --reference-fasta /mnt/data/genomes/Homo_sapiens/UCSC/hg38/Sequence/WholeGenomeFastaMainChromosomes/genome.fa \
+  --blacklist /mnt/data/genomes/Homo_sapiens/hg38/hg38.CUTandRUN.blacklist.bed \
+  --filter-mode strict \
+  --mapq 10 \
+  --output-dir ./results \
+  --ncpu 8
+```
+
+Strict filtering is the batch default; use `--filter-mode weak` or
+`--filter-mode none` to change it. Run `batch_blender2.py --help` for the full
+set of explicitly supported Blender options. Unknown and free-form trailing
+arguments are rejected.
 
 ## Post-hoc Filtering
 `filter_disco.py <input> [--filter_strict]`
@@ -227,4 +265,3 @@ BFP control fastqs (BW44): https://trace.ncbi.nlm.nih.gov/Traces/sra/?run=SRR855
 
 ## Citing: 
 *Wienert, B., *Wyman, S. K., Richardson, C. D., Yeh, C. D., Akcakaya, P., Porritt, M. J., Morlock, M., Vu, J. T., Kazane, K. R., Watry, H. L., Judge, L. M., Conklin, B. R., Maresca, M. and Corn, J. E. (2019). Unbiased detection of CRISPR off-targets in vivo using DISCOVER-Seq. Science. *contributed equally
-
