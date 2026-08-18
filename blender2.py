@@ -147,6 +147,20 @@ def check_read(read, min_MQ = None, blacklist = None):
             return False
     return True
 
+
+def is_fragment_representative(read) -> bool:
+    """Return whether a qualifying alignment should count as one fragment.
+
+    A primary read1 represents a mapped pair.  When read1 is unmapped, its
+    mapped read2 represents the fragment instead.  Unpaired primary reads
+    each represent one fragment.
+    """
+    if read.is_secondary or read.is_supplementary:
+        return False
+    if not read.is_paired:
+        return True
+    return read.is_read1 or (read.is_read2 and read.mate_is_unmapped)
+
 def _location_in_intervals(location: int, intervals) -> bool:
     """Return whether a 1-based location is in merged, sorted BED intervals."""
     if not intervals:
@@ -282,9 +296,9 @@ OUTPUT_COLUMNS = (
 
 def process_chromosome(chromosome, args, nuc, window_size, blacklist,
                        edited_bamfile, reference_fasta, control_bamfile=None):
-    """Process one chromosome and return (output rows, good-read count)."""
+    """Process one chromosome and return (output rows, good-fragment count)."""
     nsites = 0
-    n_goodreads = 0
+    n_goodfragments = 0
     rows = []
     log.info(f"Working on {chromosome}")
     for_starts = {}
@@ -297,7 +311,8 @@ def process_chromosome(chromosome, args, nuc, window_size, blacklist,
         if chromosome_blacklist and _location_in_intervals(
                 read.reference_start + 1, chromosome_blacklist):
             continue
-        n_goodreads += 1
+        if is_fragment_representative(read):
+            n_goodfragments += 1
         start = read.reference_start
         end = read.reference_end
         if read.mate_is_unmapped:
@@ -404,7 +419,7 @@ def process_chromosome(chromosome, args, nuc, window_size, blacklist,
                         if result['s'] < 0 or result['e'] < 0:
                             log.info(f"{chromosome}:{s1}-{e1}\t{site1}\t{score}\t{n_ends}\t{strand}\t{pam_fullseq}\t{guide} FILTERED: too close to start of chromosome")
     log.info(f"Found {nsites} unfiltered sites on {chromosome}")
-    return rows, n_goodreads
+    return rows, n_goodfragments
 
 
 def _process_chromosome_worker(payload):
@@ -481,7 +496,7 @@ def main():
             results = pool.map(_process_chromosome_worker, payloads)
 
     rows = [row for chromosome_rows, unused_count in results for row in chromosome_rows]
-    n_goodreads = sum(count for unused_rows, count in results)
+    n_goodfragments = sum(count for unused_rows, count in results)
     df = pd.DataFrame.from_records(rows, columns=OUTPUT_COLUMNS)
 
     if args.filter:
@@ -500,8 +515,13 @@ def main():
         df = pd.merge(df, filter3, how = "outer")
 
     # NORMALIZE TO FRACTION OF MAX
-    df['DPM'] = df['Discoscore'] / (n_goodreads / 1e6)
-    df['normDPM'] = df['DPM'] / df['DPM'].max()
+    if n_goodfragments:
+        df['DPM'] = df['Discoscore'] / (n_goodfragments / 1e6)
+        df['normDPM'] = df['DPM'] / df['DPM'].max()
+    else:
+        log.warning("No qualifying fragments found; setting DPM values to 0")
+        df['DPM'] = 0.0
+        df['normDPM'] = 0.0
     
     # SORT AND OUTPUT
     df.sort_values(by=['normDPM'], ascending=False, inplace=True)
