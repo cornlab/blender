@@ -100,7 +100,7 @@ def parse_arguments():
     parser.add_argument('-o', '--output', required=True, help='output file (required)')
     parser.add_argument('-c', '--control_bam', help='control BAM (optional, but highly recommended)')
     parser.add_argument('--filter', action='store_true', help='Weak filter sites based on score and number of mismatches (default: False)')
-    parser.add_argument('--filter_pool', action='store_true', help='Stringent filter sites based on score and number of mismatches. Recommended! (default: False)')
+    parser.add_argument('--filter_strict', action='store_true', help='Strict filter sites based on score and number of mismatches. Recommended! (default: False)')
     parser.add_argument('-g', '--guide', required=True,
                         help="On-target guide RNA sequence. Required. provided 5'-3' without the PAM sequence")
     parser.add_argument('-t', '--threshold', type=int, default=3,
@@ -115,19 +115,19 @@ def parse_arguments():
     parser.add_argument('-b', '--blacklist', help='Blacklist to use for filtering hits, e.g. from ENCODE (BED3 format)')
     parser.add_argument('--verbose', action='store_true', default=False, help="verbose output")
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
-    parser.add_argument('-q', '--mapq', type=int, default=20, help='MAPQ value of reads (default 20)')
+    parser.add_argument('-q', '--mapq', type=int, default=10, help='MAPQ value of reads (default 10)')
     args = parser.parse_args()
     args.pams = [x.upper() for x in args.pams] if args.pams else None  # convert to uppercase
     args.guide = args.guide.upper()  # convert to uppercase
-    if args.filter_pool and args.filter:
-        log.error(f"Cannot use both --filter and --filter_pool. Exiting.")
+    if args.filter_strict and args.filter:
+        log.error(f"Cannot use both --filter and --filter_strict. Exiting.")
         sys.exit(1)
 
     return args
 
 def check_read(read, min_MQ = None, blacklist = None):
     if min_MQ == None:
-        min_MQ = 20
+        min_MQ = 10
     if blacklist == None:
         blacklist = {}
     if read.is_unmapped:
@@ -303,6 +303,7 @@ if __name__ == '__main__':
     reference_fasta = pysam.FastaFile(filename=args.reference_fasta)
 
     edited_bamfile = pysam.AlignmentFile(args.experiment_bam, "rb")
+    n_goodreads = 0
     # Get the chromosome lengths from the header
     chromosome_lengths = dict(zip(edited_bamfile.references, edited_bamfile.lengths))
     bg_discoscores = [] # used to calculate background distribution for z-score
@@ -322,6 +323,7 @@ if __name__ == '__main__':
             goodread = check_read(read = read, min_MQ = args.mapq, blacklist = blacklist)
             if not goodread:
                 continue
+            n_goodreads += 1
             start = read.reference_start
             end = read.reference_end
             # log.debug(f"GOODREAD {read.query_name} {start} {end}")
@@ -409,7 +411,7 @@ if __name__ == '__main__':
 
                 if result['success']:
                     nsites += 1 # we found a site
-                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":site1, "Discoscore":score, "Cutsite Ends":n_ends, "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm} 
+                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":site1, "Cutsite Ends":n_ends, "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm, "Discoscore":score} 
                     for key in sitedict.keys():
                         outdict[key].append(sitedict[key])
                     if args.verbose:
@@ -434,7 +436,7 @@ if __name__ == '__main__':
 
                 if result['success']:
                     nsites += 1 # we found a site
-                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":site1, "Discoscore":score, "Cutsite Ends":n_ends, "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm} 
+                    sitedict = {"Chr:Start-End":f"{chromosome}:{s1}-{e1}", "Cutsite":site1, "Cutsite Ends":n_ends, "Strand":strand, "PAM":pam_fullseq, "Guide sequence":guide, "Mismatches":mm, "Discoscore":score} 
                     for key in sitedict.keys():
                         outdict[key].append(sitedict[key])
                     if args.verbose:
@@ -454,17 +456,16 @@ if __name__ == '__main__':
     bg_discoscores_mean = np.mean(bg_discoscores)
     bg_discoscores_std = np.std(bg_discoscores)
     df = pd.DataFrame.from_dict(outdict)
-    df['z_discoscore'] = (df['Discoscore'] - bg_discoscores_mean) / bg_discoscores_std
 
     if args.filter:
-        log.info(f"Weak filtering sites based on score and number of mismatches")
+        log.info(f"Normal filtering sites based on score and number of mismatches")
         filter1 = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 4)]
         filter2 = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 3)]
         filter3 = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 2)]
         df = pd.merge(filter1, filter2, how = "outer")
         df = pd.merge(df, filter3, how = "outer")
-    elif args.filter_pool:
-        log.info(f"Stringent filtering sites based on score and number of mismatches")
+    elif args.filter_strict:
+        log.info(f"Strict filtering sites based on score and number of mismatches")
         filter1 = df[(df['Mismatches'] <= 7) & (df['Discoscore'] >= 5)]
         filter2 = df[(df['Mismatches'] <= 5) & (df['Discoscore'] >= 4)]
         filter3 = df[(df['Mismatches'] <= 3) & (df['Discoscore'] >= 3)]
@@ -472,10 +473,10 @@ if __name__ == '__main__':
         df = pd.merge(df, filter3, how = "outer")
 
     # NORMALIZE TO FRACTION OF MAX
-    df['norm_discoscore'] = df['Discoscore'] / df['Discoscore'].max()
+    df['DPM'] = df['Discoscore'] / (n_goodreads / 1e6)
+    df['normDPM'] = df['DPM'] / df['DPM'].max()
     
     # SORT AND OUTPUT
-    df.sort_values(by=['Discoscore'], ascending=False, inplace=True)
-    df.to_csv(f"{args.output}", index=False, sep='\t')
+    df.sort_values(by=['normDPM'], ascending=False, inplace=True)
+    df.to_csv(args.output, index=False, sep='\t', float_format='%.6f')
     log.info(f"{len(df.index)} site(s) written to {args.output}")
-
