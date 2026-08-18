@@ -120,7 +120,7 @@ def parse_arguments():
     parser.add_argument('--verbose', action='store_true', default=False, help="verbose output")
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
     parser.add_argument('-q', '--mapq', type=int, default=10, help='MAPQ value of reads (default 10)')
-    parser.add_argument('-j', '--workers', type=int, default=1,
+    parser.add_argument('-j', '--ncpu', type=int, default=1,
                         help='Number of chromosomes to process in parallel (default 1)')
     args = parser.parse_args()
     args.pams = [x.upper() for x in args.pams] if args.pams else None  # convert to uppercase
@@ -128,8 +128,8 @@ def parse_arguments():
     if args.filter_strict and args.filter:
         log.error(f"Cannot use both --filter and --filter_strict. Exiting.")
         sys.exit(1)
-    if args.workers < 1:
-        parser.error("--workers must be at least 1")
+    if args.ncpu < 1:
+        parser.error("--ncpu must be at least 1")
 
     return args
 
@@ -458,7 +458,7 @@ def main():
                     f"{chromosome} not in reference fasta {args.reference_fasta}. Skipping."
                 )
 
-    if args.workers == 1:
+    if args.ncpu == 1:
         with pysam.AlignmentFile(args.experiment_bam, "rb") as edited_bamfile, \
                 pysam.FastaFile(filename=args.reference_fasta) as reference_fasta:
             if args.control_bam:
@@ -477,7 +477,7 @@ def main():
             (chromosome, args, nuc, window_size, blacklist)
             for chromosome in chromosomes
         ]
-        with mp.Pool(processes=args.workers) as pool:
+        with mp.Pool(processes=args.ncpu) as pool:
             results = pool.map(_process_chromosome_worker, payloads)
 
     rows = [row for chromosome_rows, unused_count in results for row in chromosome_rows]

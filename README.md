@@ -84,7 +84,7 @@ Faster, more flexible, less tested
 
 `-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 10)
 
-`-j` `--workers`        Number of chromosomes to process concurrently within one run (default 1). Leave this at 1 when `batch_blender2.py` is already running multiple BAMs in parallel.
+`-j` `--ncpu`        Number of chromosomes to process concurrently within one run (default 1).
 
 `--verbose`             This flag will turn on output of filtered out candidates while running. These sites are not written to the output file, but a log can be captured for troubleshooting.
 
@@ -92,7 +92,6 @@ Faster, more flexible, less tested
 
 `--filter_strict`       Filter results per the original "filter_pool.pl" script
 
-`j` `--nproc`           Number of processors to use, parallelizing per chromosome. Default 1.
 
 ## Batch running blender2
 
@@ -123,6 +122,8 @@ batch_blender2.py \
   --output-dir ./results \
   --ncpu 8
 ```
+
+Note that batch_blender2.py forces blender2.py to only use 1 cpu per child job. So `batch_blender2.py --ncpu 8` runs 8 blender2.py children with 1 cpu each. Not 8 blender2.py children with 8 cpus each.
 
 Strict filtering is the batch default; use `--filter-mode weak` or
 `--filter-mode none` to change it. Run `batch_blender2.py --help` for the full
