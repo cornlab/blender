@@ -37,6 +37,7 @@ Faster, more flexible, less tested
 ## Requirements
 - [ ] pysam https://pysam.readthedocs.io/en/latest/installation.html (best installed via conda)
 - [ ] pandas https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
+- [ ] svgwrite https://svgwrite.readthedocs.io/ (required by `draw_blender_fig.py`)
 
 ## To run the blender script directly:
 
@@ -209,6 +210,9 @@ The automated bash scripts output `unfiltered_blender_hits.txt`, `filtered_blend
 
 # Pretty pictures
 You can use draw_blender_fig.py to create an svg image of the hits from either blender or blender2.
+Input columns are matched by header name, so their order does not matter. Figures
+from blender2 output also include `DPM` and `normDPM` when those columns are
+present; legacy output without those metrics remains supported.
 
 `-i`, `--infile`        blender output file to draw
 

@@ -1,5 +1,6 @@
 import svgwrite
 import argparse
+import csv
 
 # Stacia Wyman 21 July 2019
 # Python script to draw alignments of BLENDER hit to the target sequence 
@@ -10,6 +11,19 @@ boxWidth = 10
 box_size = 16
 
 colors = {'G': '#F5F500', 'A': '#FF5454', 'T': '#00D118', 'C': '#26A8FF', 'N': '#B3B3B3', 'R': '#FFA500'}
+
+REQUIRED_COLUMNS = (
+    'Chr:Start-End', 'Discoscore', 'PAM', 'Guide sequence', 'Mismatches'
+)
+OPTIONAL_METRICS = ('DPM', 'normDPM')
+
+
+class SiteList(list):
+    """Parsed sites plus the optional metric columns declared by the input."""
+
+    def __init__(self, available_metrics=()):
+        super().__init__()
+        self.available_metrics = tuple(available_metrics)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(prog="blender figure", description = "Make pretty figures from blender output")
@@ -26,28 +40,53 @@ def parse_arguments():
 # Read in filtered off-target list, grab relevant columns, sort by disco score, then mismatches, 
 # then genomic coordinate
 def parseSitesFile(infile):
-    offtargets = []
-    with open(infile, 'r') as f:
-        f.readline()
-        for line in f:
-            line_items = line.split('\t')
-            # Skip header line
-            if "Discoscore" in line:
+    with open(infile, 'r', encoding='utf-8', newline='') as f:
+        reader = csv.DictReader(f, delimiter='\t')
+        if reader.fieldnames is None:
+            raise ValueError('input is empty or has no header')
+        missing = [column for column in REQUIRED_COLUMNS
+                   if column not in reader.fieldnames]
+        if missing:
+            raise ValueError(
+                'input is missing required columns: ' + ', '.join(missing)
+            )
+        available_metrics = [metric for metric in OPTIONAL_METRICS
+                             if metric in reader.fieldnames]
+        offtargets = SiteList(available_metrics)
+
+        for line_number, row in enumerate(reader, start=2):
+            if not any(isinstance(value, str) and value.strip()
+                       for value in row.values()):
                 continue
-            # concatenate PAM to putative guide sequence
-            offtarget_sequence = line_items[6]
-            pam = line_items[5]
-            disco_score = line_items[2] 
-            coords = line_items[0]
-            mismatches = line_items[7]
+            try:
+                disco_score = int(row['Discoscore'].strip())
+                mismatches = int(row['Mismatches'].strip())
+                offtarget_sequence = row['Guide sequence'].strip()
+                pam = row['PAM'].strip()
+                coords = row['Chr:Start-End'].strip()
+                metric_values = {
+                    metric: float(row[metric].strip())
+                    for metric in available_metrics
+                }
+            except (AttributeError, TypeError, ValueError) as error:
+                raise ValueError(
+                    f'line {line_number} has an invalid or missing required value'
+                ) from error
+
             if offtarget_sequence != '':
-                offtargets.append({'seq': offtarget_sequence.strip(),
-                                   'pam': pam.strip(),
-                                   'disco_score': int(disco_score.strip()),
-                                   'coords': coords.strip(),
-                                   'mismatches': int(mismatches.strip())} )
+                site = {
+                    'seq': offtarget_sequence,
+                    'pam': pam,
+                    'disco_score': disco_score,
+                    'coords': coords,
+                    'mismatches': mismatches,
+                }
+                site.update(metric_values)
+                offtargets.append(site)
     # Sort by disco score, then by mismatches
-    offtargets = sorted(offtargets, key=lambda x: (-x['disco_score'], x['mismatches'], x['coords']))
+    offtargets.sort(
+        key=lambda x: (-x['disco_score'], x['mismatches'], x['coords'])
+    )
     return offtargets 
 
 
@@ -56,13 +95,34 @@ def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, 
     # Get offtargets array from file
     offtargets  = parseSitesFile(infile)
 
-    # Initiate canvas
-    dwg = svgwrite.Drawing(outfile, size=('8.5in','11in'))
-    #dwg = svgwrite.Drawing(outfile + '.svg', profile='full')
-
     # Define top and left margins
     x_offset = 20
     y_offset = 50
+
+    if location == 3:
+        target_printseq = target_guide + pam
+    elif location == 5:
+        target_printseq = pam + target_guide
+    else:
+        raise ValueError("PAM location must be 5 or 3")
+
+    available_metrics = list(offtargets.available_metrics)
+    column_specs = [('disco_score', ('DISCO', 'Score'), 62)]
+    column_specs.extend((metric, (metric,), 78 if metric == 'DPM' else 92)
+                        for metric in available_metrics)
+    column_specs.extend((
+        ('mismatches', ('Mismatches',), 102),
+        ('coords', ('Coordinates',), 230),
+    ))
+    column_positions = {}
+    column_x = x_offset + box_size * len(target_printseq) + 8
+    for key, unused_heading, width in column_specs:
+        column_positions[key] = column_x
+        column_x += width
+
+    canvas_width = max(816, column_x + 20)
+    canvas_height = max(1056, y_offset + box_size * (len(offtargets) + 3) + 20)
+    dwg = svgwrite.Drawing(outfile, size=(canvas_width, canvas_height))
 
 	# Header line for figure, use title if there is one, otherwise...bam file name?
     if title is None:
@@ -74,17 +134,11 @@ def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, 
     x = 0
     if location == 5:
         x = box_size*(len(pam)-1) 
-    elif location == 3:
-        x = x_offset+box_size*(len(target_guide))
     else:
-        raise ValueError("PAM location must be 5 or 3")
+        x = x_offset+box_size*(len(target_guide))
     y = y_offset - 2
     dwg.add(dwg.text("PAM", insert=(x,y), style="font-size:14px; font-family:Courier"))
     # Draw reference sequence row
-    if location == 3:
-        target_printseq = target_guide + pam
-    else:
-        target_printseq = pam + target_guide
     for i, c in enumerate(target_printseq):
         y = y_offset
         if i < len(target_printseq):
@@ -95,10 +149,13 @@ def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, 
         dwg.add(dwg.text(c, insert=(x + 3, y + box_size - 3), fill='black', style="font-size:15px; font-family:Courier"))
 
     y = y_offset + box_size + 5
-    dwg.add(dwg.text("DISCO",insert=(x_offset+box_size*(len(target_printseq)+.5),y - 15),style="font-size:15px; font-family:Arial"))
-    dwg.add(dwg.text("Score", insert=(x_offset+box_size * (len(target_printseq) + .5), y), style="font-size:15px; font-family:Arial"))
-    dwg.add(dwg.text("Mismatches", insert=(x_offset+box_size * (len(target_printseq) + 4.25), y), style="font-size:15px; font-family:Arial"))
-    dwg.add(dwg.text("Coordinates", insert=(x_offset+box_size * (len(target_printseq) + 10.7), y), style="font-size:15px; font-family:Arial"))
+    for key, heading_lines, unused_width in column_specs:
+        for line_index, heading in enumerate(heading_lines):
+            heading_y = y - 15 * (len(heading_lines) - line_index - 1)
+            dwg.add(dwg.text(
+                heading, insert=(column_positions[key], heading_y),
+                style="font-size:15px; font-family:Arial"
+            ))
 
     # Draw aligned sequence rows
     y_offset += 10  # leave gap after target sequence
@@ -123,18 +180,25 @@ def visualizeOfftargets(infile: str, outfile: str, target_guide: str, pam: str, 
         y = y_offset + box_size * (j + 2) - 2
         sa = "font-size:14px; font-family:Arial"
         sc = "font-size:14px; font-family:courier"
+        fill = 'red' if int(seq['mismatches']) == 0 else 'black'
         # If this is the target sequence, output it in red
         if int(seq['mismatches']) == 0:
-            mismatch_text = dwg.text("Target", insert=(box_size * (len(target_printseq) + 6.25) , y), fill='red', style=sa)
-            disco_score_text = dwg.text(str(seq['disco_score']), insert=(box_size * (len(target_printseq) + 2) , y), fill='red', style=sa)
-            coords_text = dwg.text(str(seq['coords']), insert=(box_size * (len(target_printseq) + 12) , y), fill='red', style=sc)
+            mismatch_value = "Target"
         else:
-            mismatch_text = dwg.text(seq['mismatches'], insert=(box_size * (len(target_printseq) + 7) , y), fill='black', style=sa)
-            disco_score_text = dwg.text(str(seq['disco_score']), insert=(box_size * (len(target_printseq) + 2) , y), fill='black', style=sa)
-            coords_text = dwg.text(str(seq['coords']), insert=(box_size * (len(target_printseq) + 12) , y), fill='black', style=sc)
-        dwg.add(disco_score_text)
-        dwg.add(mismatch_text)
-        dwg.add(coords_text)
+            mismatch_value = str(seq['mismatches'])
+        values = {
+            'disco_score': str(seq['disco_score']),
+            'mismatches': mismatch_value,
+            'coords': str(seq['coords']),
+        }
+        values.update({metric: f"{seq[metric]:.3f}"
+                       for metric in available_metrics})
+        for key, unused_heading, unused_width in column_specs:
+            style = sc if key == 'coords' else sa
+            dwg.add(dwg.text(
+                values[key], insert=(column_positions[key], y),
+                fill=fill, style=style
+            ))
     dwg.save()
 
 if __name__ == '__main__':
