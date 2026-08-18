@@ -112,7 +112,7 @@ def parse_arguments():
     parser.add_argument('-m', '--max_mismatches', type=int, default=8,
                         help="Maximum number of mismatches to allow to the guide sequence (default 8)")
     parser.add_argument('-s', '--score_min', type=int, default=3, help="Minimum score to consider a hit (default 3)")
-    parser.add_argument('-b', '--blacklist', help='Blacklist to use for filtering hits, e.g. from ENCODE (BED3 format)')
+    parser.add_argument('-b', '--blacklist', help='Blacklist to use for filtering hits, e.g. from ENCODE (BED3 format). STRONGLY RECOMMENDED')
     parser.add_argument('--verbose', action='store_true', default=False, help="verbose output")
     parser.add_argument('--debug', action='store_true', default=False, help='debug output')
     parser.add_argument('-q', '--mapq', type=int, default=10, help='MAPQ value of reads (default 10)')
