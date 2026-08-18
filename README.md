@@ -43,14 +43,13 @@ Faster, more flexible, less tested
 
 `python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed -o unfiltered_output.txt`
 
-`python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o output.txt`
-        
-`python blender2_mp.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o output.txt -j <number parallel processes>`
+`python blender2.py -f <experimental bamfile> -c <control bamfile> -n <nuclease name> -g <guide sequence> -r <reference genome> -b hg38.encode-blacklist.v2.bed --filter -o filtered_output.txt`
 
+**Filtering is strongly recommended**. BLENDER can be run with or without mismatch/score-based filtering. We have so far never found a false-negative that was inappropriately filtered out. But by default we provide the unfiltered, raw results for completeness.
 
-BLENDER can be run with or without filtering based on number of mismatches and score. We have so far never found a false-negative that was inappropriately filtered out. But we provide the option of outputting unfiltered, raw results just in case you're curious about every single possible hit.
+**NB**: Note that blender does not require the separate filter.pl used by blender.pl. If you forget to filter your results, use the post-hoc filtering script
+`filter_disco.py <input> [--filter_strict]`. This filters based on the rules from filter.pl, and `--filter_strict` is the stricter behavior previously implemented for "pooled" samples in filter_pool.pl
 
-Note that blender does not require the separate filter.pl used by blender.pl
 <CENTER>
 
 ![scoring scheme](https://github.com/cornlab/blender/blob/master/scoring_scheme.png?raw=true)
@@ -84,15 +83,18 @@ Note that blender does not require the separate filter.pl used by blender.pl
 
 `-m` `--max_mismatches` Maximum number of mismatches to allow to the guide sequence (default 8)
 
-`-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 20)
+`-q` `--mapq`           Theshold MAPQ value for reads to be considered (default 10)
 
 `--verbose`             This flag will turn on output of filtered out candidates while running. These sites are not written to the output file, but a log can be captured for troubleshooting.
 
-# BLENDER2_MP aka blender2_mp.py
-This is the same as blender2.py, but has an extra option to allow parallel processing. Note that running this with just one core is actually **slower** than blender2.py. But running blender2_mp.py over many cores in parallel for each chromosome can give a speed increase of up to 6x.
+`--filter`              Filter results per the original "filter.pl" script
 
-`-j` `--nproc`		Number of parallel processes to start (default 2). Parallelizes per chromosome, and so maxes out at the number of chromosomes in your bamfile or reference fasta.
+`--filter_strict`       Filter results per the original "filter_pool.pl" script
 
+## Post-hoc Filtering
+`filter_disco.py <input> [--filter_strict]`
+
+Filters raw blender2.py or blender.pl output per the scoring scheme above. Default is "normal" filtering, and `--filter_strict` activates the "pooled" behavior from filter_pool.pl
 
 # BLENDER aka blender.pl 
 Older, much slower, more tested
